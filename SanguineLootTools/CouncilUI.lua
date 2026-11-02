@@ -4,6 +4,11 @@ local function move(object, parent, x, y, w, h)
     if w then object:SetWidth(w) end
     if h then object:SetHeight(h) end
 end
+function A:VotingResponseLabel(item,response)
+    if response.autoPass and response.choice==6 then return "Auto Pass" end
+    if response.choice~=0 then return self:ResponseLabel(response.choice,item) end
+    return item.status=="open" and "Waiting…" or "No response"
+end
 function A:CouncilAwardAction(item,target)
     if not item or item.status~="awarded" or item.winner~=target then
         return "Award",self:CanAwardCandidate(item,target),nil
@@ -297,7 +302,7 @@ function A:RenderCouncilTable(item, candidates, draft)
                 gear.icon:SetTexture(gear.link and self:ItemIcon({link=gear.link}) or "Interface/Icons/INV_Misc_QuestionMark")
                 gear:SetShown(comparison[j] ~= nil)
             end
-            local response = c.response.choice~=0 and self:ResponseLabel(c.response.choice,item) or (item.status=="open" and "Waiting…" or "No response")
+            local response = self:VotingResponseLabel(item,c.response)
             local values={self:DisplayName(c.name),rank,role,response,"",c.votes>=0 and tostring(c.votes) or "—","",c.response.note~="" and "Note" or "—",""}
             for j, cell in ipairs(row.cells) do cell:SetText(values[j]); cell:SetTextColor(0.85,0.85,0.85) end
             local _,_,classColor=self:LootHolderInfo(c.name)

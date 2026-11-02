@@ -1,6 +1,6 @@
-# Alpha.40 raid testing checklist
+# Alpha.41 raid testing checklist
 
-Everyone testing together should use **0.12.0-alpha.40**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.41**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.
@@ -19,6 +19,20 @@ Local simulations passed; the following checks still need in-game confirmation.
 - [ ] Queue All with several players responding/voting together. Check prompt delivery and synchronization.
 
 For failures, record steps, expected/actual behavior, screenshots and `/slt diagnostics` from the raid leader and affected holder.
+
+## Class restrictions, text counters and window layout
+
+- [ ] Queue a class-restricted item with both usable and restricted classes present. Restricted players should show Auto Pass in Voting immediately, without being counted as waiting or timed out.
+- [ ] Confirm restricted players cannot receive votes or be awarded the item, and eligible players still respond normally.
+- [ ] Unknown/unavailable class data must not trigger a pass. Once a restriction is confirmed, the leader should synchronize Auto Pass to council members.
+- [ ] An explicit player-selected Pass should still read Pass; existing explicit responses must be preserved.
+- [ ] Type and clear a Change winner reason. The counter should update from 0/160, and still match after choosing a different replacement.
+- [ ] Move Timer, Loot, Responses and Settings flush to each screen edge. Releasing the mouse should not push them inward.
+- [ ] Overlap Settings, Responses and Timer in different orders. Only the foreground window's controls should be visible or clickable in the overlapping area.
+- [ ] Click an exposed part of a background window. Its complete contents should come to the front together. Timer should remain open independently.
+- [ ] Open Change winner, an assignment reason or another small dialog. Its parent should be dimmed and blocked until close/cancel.
+- [ ] Open a nested confirmation and then cancel it. The preceding dialog should remain above its parent; closing both should restore parent clicks.
+- [ ] Check dropdowns above dialogs, long recipient lists, resize grips and collapse/expand while windows overlap.
 
 ## Run local checks
 

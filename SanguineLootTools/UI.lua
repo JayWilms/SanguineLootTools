@@ -4,7 +4,7 @@ local _, A = ...
 function A:StylePanel(frame, headerHeight)
     frame:SetBackdrop({bgFile="Interface/Buttons/WHITE8X8",edgeFile="Interface/Buttons/WHITE8X8",edgeSize=1,
         insets={left=1,right=1,top=1,bottom=1}})
-    frame:SetBackdropColor(0.055,0.06,0.07,0.98)
+    frame:SetBackdropColor(0.055,0.06,0.07,1)
     frame:SetBackdropBorderColor(0.26,0.28,0.31,1)
     if headerHeight then
         local band=frame:CreateTexture(nil,"BACKGROUND")
@@ -311,6 +311,7 @@ local function window(name, title, w, h, transient)
     A.windowFrames = A.windowFrames or {}
     if not transient then A.windowFrames[#A.windowFrames+1] = {frame=f,name=name} end
     A:InstallWindowChrome(f,name,button)
+    A:RegisterWindowLayers(f)
     return f
 end
 
@@ -325,8 +326,18 @@ function A:BuildCorrectionUI(u,window,text,button,edit)
         function(target) A:SelectCorrectionCandidate(target) end,button)
     u.correctionEligibility=text(u.correction,"",12,20,-190,575)
     u.correctionEligibility:SetHeight(42);u.correctionEligibility:SetJustifyV("TOP");u.correctionEligibility:SetMaxLines(3)
-    u.correctionReason=edit(u.correction,25,-255,565,"Reason for changing winner (required, maximum 160 bytes)")
+    u.correctionReason=edit(u.correction,25,-255,565,"Reason for changing winner (required)")
     u.correctionReason:SetMaxLetters(160)
+    u.correctionReasonBytes=text(u.correction,"0/160",11,0,0,80)
+    u.correctionReasonBytes:ClearAllPoints();u.correctionReasonBytes:SetPoint("TOPRIGHT",u.correctionReason,"TOPRIGHT",0,18)
+    u.correctionReasonBytes:SetJustifyH("RIGHT");u.correctionReasonBytes:SetHeight(14);u.correctionReasonBytes:SetMaxLines(1)
+    local function updateReasonCount()
+        local count=#u.correctionReason:GetText()
+        u.correctionReasonBytes:SetText(count.."/160")
+        u.correctionReasonBytes:SetTextColor(count>160 and 1 or .8,count>160 and .2 or .8,.6)
+    end
+    u.correctionReason:HookScript("OnTextChanged",updateReasonCount)
+    updateReasonCount()
     u.correctionStatus=text(u.correction,"",12,20,-295,575)
     u.correctionStatus:SetHeight(45);u.correctionStatus:SetJustifyV("TOP")
     u.correctReview=button(u.correction,"Review change",20,-380,280,function() A:ReviewCorrection() end)
@@ -716,6 +727,7 @@ function A:BuildUI()
     u.lootPanels.timer.manage:HookScript("OnShow",function(f) if not A:IsMaster() then f:Hide() end end)
     self:InstallManualLootLinkHooks()
     for _,frame in ipairs(self.allWindowFrames) do self:RefreshWindowChrome(frame) end
+    self:RefreshWindowLayers()
 end
 
 function A:RenderLauncher()
@@ -1183,7 +1195,7 @@ function A:ReviewEndSession()
     if not self.state or not self:IsLeader() then return false end
     self:BuildUI();self.endSessionContext=self.state.id
     self.ui.endSession:ClearAllPoints();self.ui.endSession:SetPoint("CENTER",self.ui.settingsHub,"CENTER",0,0)
-    self.ui.endSession:Show();self.ui.endSession:Raise()
+    self.ui.endSession:Show();self:FocusWindow(self.ui.endSession)
     return true
 end
 function A:CloseEndSession()
@@ -1262,7 +1274,15 @@ function A:ShowConfirmation(kind,first,second)
     u.confirmation:ClearAllPoints();u.confirmation:SetPoint("CENTER",owner,"CENTER",0,0)
     u.confirmation:SetScale(self:WindowScale(u.confirmation,owner:GetEffectiveScale()/UIParent:GetEffectiveScale()))
     if context.votingOwner then self:FitVotingDialog(u.confirmation) end
-    u.confirmation:Show();u.confirmation:Raise()
+    local modalOwner=owner
+    if short=="CORRECT_AWARD" and u.correction:IsShown() then modalOwner=u.correction
+    elseif short=="ARCHIVE" and u.history:IsShown() then modalOwner=u.history
+    elseif short=="DELIVERY" then
+        local panel=u.lootPanels.timer
+        modalOwner=panel.manage:IsShown() and panel.manage or panel.window
+    end
+    u.confirmation.sltDialogOwner=modalOwner
+    u.confirmation:Show();self:FocusWindow(u.confirmation)
     return context
 end
 function A:CloseConfirmation()

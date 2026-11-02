@@ -4,6 +4,34 @@ function A:ValidResponseDuration(value)
     return type(value) == "number" and value % 1 == 0 and (value >= 5 and value <= 600)
 end
 
+-- The leader uses the same class test that hides unusable items locally.
+-- Unknown data is never a reason to pass, and explicit replies are preserved.
+function A:RefreshClassAutoPasses(item,apply)
+    if not item or (item.status~="open" and item.status~="closed") then return 0 end
+    local count=0
+    for name in pairs(item.responseMembers or {}) do
+        local response=item.responses[name]
+        if self.roster[name] and (not response or response.autoPass) then
+            local status=self:ClassEligibility(item,name)
+            if status=="Restricted" and not response then
+                count=count+1
+                if apply then
+                    self:ApplyResponse(item,name,6,"Auto pass: class restriction.",nil)
+                    item.responses[name].autoPass=true
+                    if item.noResponse then item.noResponse[name]=nil end
+                end
+            elseif status=="Eligible" and response and response.autoPass then
+                count=count+1
+                if apply then
+                    item.responses[name]=nil;item.ballotVersion=(item.ballotVersion or 0)+1
+                    if item.status=="closed" then item.noResponse=item.noResponse or {};item.noResponse[name]=true end
+                end
+            end
+        end
+    end
+    return count
+end
+
 function A:StartResponses(item)
     item.responseOptions=item.responseOptions or self.Copy(self:ResponseOptions())
     self:ResetBallot(item)
@@ -15,9 +43,11 @@ function A:StartResponses(item)
     for name in pairs(self.roster) do item.responseMembers[name] = true end
     item.status = "open"
     self:StartBallot(item)
+    self:RefreshClassAutoPasses(item,true)
 end
 
 function A:FinishResponses(item, reason)
+    self:RefreshClassAutoPasses(item,true)
     item.status, item.responseCloseReason = "closed", reason
     item.noResponse = {}
     for name in pairs(item.responseMembers or {}) do
@@ -47,12 +77,19 @@ function A:TrackResponseMembers()
         if item.status == "open" then
             item.responseMembers = item.responseMembers or {}
             for name in pairs(self.roster) do item.responseMembers[name] = true end
+            self:RefreshClassAutoPasses(item,true)
         end
     end
 end
 
 function A:TickResponses()
     if not self:IsLeader() or not self.state then return end
+    for _,item in ipairs(self.state.items) do
+        if self:RefreshClassAutoPasses(item,false)>0 then
+            self:HostRequest(self.me,{op="classAutoPass",sid=self.state.id})
+            break
+        end
+    end
     for _, item in ipairs(self.state.items) do
         if item.status == "open" and item.responseDeadline and A.Client:ServerTime() >= item.responseDeadline then
             self:HostRequest(self.me, {op = "expireResponses", sid = self.state.id, item = item.id})

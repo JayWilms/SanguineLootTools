@@ -5,6 +5,8 @@ import sys
 root = Path(__file__).resolve().parent.parent
 (root / 'work').mkdir(exist_ok=True)
 checks = [
+    'check_window_layers.py',
+    'check_class_autopass.py',
     'check_voting_trade.py',
     'check_correction_dropdown.py',
     'check_handovers.py',
@@ -20,4 +22,4 @@ for name in checks:
         print(result.stderr, file=sys.stderr)
         raise SystemExit(result.returncode)
     print('PASS: ' + name)
-print('All seven suites passed. These simulations do not replace native in-game testing.')
+print(f'All {len(checks)} suites passed. These simulations do not replace native in-game testing.')

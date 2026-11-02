@@ -368,5 +368,5 @@ function A:ShowLootManagement()
     if not entry then self:Print("Select an item in Loot / Trade first.");return end
     self:RenderLootWindows()
     local panel=self.ui.lootPanels.timer
-    panel.manage:Show();panel.manage:Raise();panel.window:Hide()
+    panel.manage:Show();self:FocusWindow(panel.manage);panel.window:Hide()
 end

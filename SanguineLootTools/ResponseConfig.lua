@@ -68,13 +68,13 @@ function A:PickResponseColor(id)
     local option=self:ResponseOption(id)
     if not option then return false end
     self:BuildUI()
-    if self.personalColorDraft then self.ui.personalColor:Raise();return false end
+    if self.personalColorDraft then self:FocusWindow(self.ui.personalColor);return false end
     local r,g,b=self:ResponseRGB(id)
     self.personalColorDraft={id=id,previous=self:PersonalResponseColors()[id]}
     self.ui.personalColor.title:SetText("Response colour — "..option.label)
     self:ApplyPersonalPickerRGB(math.floor(r*255+0.5),math.floor(g*255+0.5),math.floor(b*255+0.5))
     self.ui.personalColor:ClearAllPoints();self.ui.personalColor:SetPoint("CENTER",self.ui.settingsHub,"CENTER",0,0)
-    self.ui.personalColor:Show();self.ui.personalColor:Raise()
+    self.ui.personalColor:Show();self:FocusWindow(self.ui.personalColor)
     return true
 end
 function A:ApplyPersonalPickerRGB(red,green,blue)

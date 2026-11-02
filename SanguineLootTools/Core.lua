@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.40"
+A.version = "0.12.0-alpha.41"
 A.protocol = 15
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -199,6 +199,11 @@ function A:Reduce(sender, p)
         s.responseDuration = p.duration
         if not self.demo then SanguineLootCouncilDB.responseDuration = p.duration end
         return true
+    elseif p.op == "classAutoPass" then
+        if sender~=self.leader then return false,"Only the raid leader resolves class auto passes." end
+        local changed=0
+        for _,it in ipairs(s.items) do changed=changed+self:RefreshClassAutoPasses(it,true) end
+        return changed>0,"No class auto passes changed."
     elseif p.op == "rules" then
         if sender ~= self.leader then return false, "Only the raid leader can change voting rules." end
         if self:VotingLocked() then return false, "Reset all unawarded ballots before changing voting rules." end

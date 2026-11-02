@@ -2,6 +2,112 @@ local _, A = ...
 local anchors={TOPLEFT=true,TOP=true,TOPRIGHT=true,LEFT=true,CENTER=true,RIGHT=true,BOTTOMLEFT=true,BOTTOM=true,BOTTOMRIGHT=true}
 local function finite(n) return type(n)=="number" and n==n and math.abs(n)<100000 end
 
+function A:WindowModalOwner(frame)
+    local u=self.ui
+    if not u then return nil,false end
+    local parent
+    local modal=frame==u.correction or frame==u.lootReason or frame==u.personalColor or frame==u.itemTools
+        or frame==u.reroll or frame==u.endSession or frame==u.confirmation
+    if frame==u.correction then parent=u.main
+    elseif frame==u.lootReason or frame==u.personalColor or frame==u.endSession then parent=u.settingsHub
+    elseif frame==u.itemTools then parent=u.lootPanels and u.lootPanels.timer.window
+    elseif frame==u.confirmation then parent=frame.sltDialogOwner
+    elseif frame==u.reroll then
+        parent=u.main and u.main:IsShown() and u.main or u.lootPanels and u.lootPanels.timer.window
+    end
+    while parent and parent~=UIParent and not parent.sltManagedWindow do parent=parent:GetParent() end
+    return parent~=UIParent and parent or nil,modal
+end
+
+function A:FocusWindow(frame)
+    if not frame or not frame.sltManagedWindow or self.sltLayering then return end
+    for _=1,#(self.windowStack or {}) do
+        local nextDialog
+        for _,candidate in ipairs(self.windowStack or {}) do
+            local parent=self:WindowModalOwner(candidate)
+            if candidate:IsShown() and parent==frame then nextDialog=candidate end
+        end
+        if not nextDialog then break end
+        frame=nextDialog
+    end
+    local stack=self.windowStack or {}
+    for i=#stack,1,-1 do if stack[i]==frame then table.remove(stack,i) end end
+    stack[#stack+1]=frame;self.windowStack=stack
+    self:RefreshWindowLayers()
+end
+
+function A:RefreshWindowLayers()
+    if self.sltLayering then return end
+    self.sltLayering=true
+    local stack=self.windowStack or {}
+    local present={}
+    for _,frame in ipairs(stack) do present[frame]=true end
+    for _,frame in ipairs(self.allWindowFrames or {}) do
+        if not present[frame] then stack[#stack+1]=frame;present[frame]=true end
+    end
+    self.windowStack=stack
+    -- Capture offsets before changing any level: native setters may also move
+    -- descendants. Keep each complete window within its own 256-level band.
+    local function capture(node,root)
+        if node~=root and node.sltManagedWindow then return end
+        node.sltFocusRoot=root
+        if not node.sltFocusHooked and not node.sltModalBlocker then
+            node:HookScript("OnMouseDown",function(f) A:FocusWindow(f.sltFocusRoot) end)
+            node.sltFocusHooked=true
+        end
+        for _,child in ipairs({node:GetChildren()}) do
+            if child.sltLayerParent~=node then
+                child.sltLayerOffset=math.max(0,math.min(40,child:GetFrameLevel()-node:GetFrameLevel()))
+                child.sltLayerParent=node
+            end
+            capture(child,root)
+        end
+    end
+    local function paint(node,root,base,relative,strata)
+        if node~=root and node.sltManagedWindow then return end
+        if node.sltModalBlocker then relative=240 end
+        node:SetFrameStrata(strata);node:SetFrameLevel(base+relative)
+        for _,child in ipairs({node:GetChildren()}) do
+            paint(child,root,base,math.min(200,relative+(child.sltLayerOffset or 1)),strata)
+        end
+    end
+    local blocked={}
+    for _,frame in ipairs(stack) do
+        if frame:IsShown() then
+            local parent=self:WindowModalOwner(frame)
+            if parent and parent:IsShown() then blocked[parent]=frame end
+        end
+    end
+    for _,parent in ipairs(stack) do
+        local dialog=blocked[parent]
+        local blocker=parent.sltDialogBlocker
+        if dialog and not blocker then
+            blocker=CreateFrame("Frame",nil,parent)
+            parent.sltDialogBlocker=blocker;blocker.sltModalBlocker=true
+            blocker:SetAllPoints(parent);blocker:EnableMouse(true);blocker:EnableMouseWheel(true)
+            blocker:SetScript("OnMouseDown",function(f) A:FocusWindow(f.sltBlockedBy) end)
+            local shade=blocker:CreateTexture(nil,"BACKGROUND");shade:SetAllPoints();shade:SetColorTexture(0,0,0,.25)
+        end
+        if blocker then blocker.sltBlockedBy=dialog;blocker:SetShown(dialog~=nil) end
+    end
+    for _,frame in ipairs(stack) do if frame:IsShown() then capture(frame,frame) end end
+    local index=0
+    for _,frame in ipairs(stack) do
+        if frame:IsShown() then
+            index=index+1
+            local _,modal=self:WindowModalOwner(frame)
+            paint(frame,frame,10+index*256,0,modal and "FULLSCREEN_DIALOG" or "DIALOG")
+        end
+    end
+    self.sltLayering=false
+end
+
+function A:RegisterWindowLayers(frame)
+    frame.sltManagedWindow=true
+    frame:HookScript("OnShow",function(f) A:FocusWindow(f) end)
+    frame:HookScript("OnHide",function() A:RefreshWindowLayers() end)
+end
+
 -- Personal layout is deliberately separate from shared raid profiles/state.
 function A:WindowLayoutStore()
     self:InitStorage()
@@ -198,6 +304,7 @@ end
 -- StartMoving may change anchors to screen-relative coordinates. Capture the
 -- rendered bounds before stopping, then store a canonical UIParent anchor.
 function A:BeginWindowMove(frame)
+    self:FocusWindow(frame)
     if self:WindowLocked(frame) or frame.sltResizing==true then return false end
     frame.sltDragLeft,frame.sltDragTop=self:WindowTopLeft(frame)
     frame.sltMoving=true
@@ -227,8 +334,7 @@ end
 function A:ClampWindowPosition(frame)
     local x,y=self:WindowTopLeft(frame)
     local sw,sh,w,h=UIParent:GetWidth(),UIParent:GetHeight(),frame:GetWidth(),frame:GetHeight()
-    local mx,my=math.min(16,math.max(0,(sw-w)/2)),math.min(16,math.max(0,(sh-h)/2))
-    x=math.max(mx,math.min(sw-w-mx,x));y=math.max(my,math.min(sh-h-my,y))
+    x=math.max(0,math.min(sw-w,x));y=math.max(0,math.min(sh-h,y))
     frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOPLEFT",x,-y)
 end
 function A:DefaultWindowPosition(frame)

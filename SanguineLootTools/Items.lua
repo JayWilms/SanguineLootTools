@@ -178,11 +178,13 @@ end
 
 -- This filter is only class tags and armour/weapon proficiency. Required item
 -- level, faction/race and preference remain notices, never inferred BIS choices.
-function A:ClassEligibility(item)
+function A:ClassEligibility(item,name)
     local details=self:ItemDetails(item)
     if not details.known then return "Unknown","Item class information is unavailable." end
-    local ok,_,_,classID=self.Client:Call("UnitClass","player")
-    local levelOK,level=self.Client:Call("UnitLevel","player")
+    local unit=name and self.roster[name] or "player"
+    if type(unit)~="string" then return "Unknown","Raider class information is unavailable." end
+    local ok,_,_,classID=self.Client:Call("UnitClass",unit)
+    local levelOK,level=self.Client:Call("UnitLevel",unit)
     if not ok or not number(classID) or classID<1 or classID%1~=0
         or not levelOK or not number(level) or level<1 then
         return "Unknown","Your class or level is unavailable."

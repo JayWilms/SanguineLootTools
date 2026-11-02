@@ -184,7 +184,7 @@ function A:ShowReroll(c,item)
     local dialog=self.ui.reroll
     self.ui.rerollItem:SetText(item.link)
     self:FitVotingDialog(dialog)
-    dialog:Show();dialog:Raise()
+    dialog:Show();self:FocusWindow(dialog)
 end
 function A:CloseReroll()
     self.rerollContext=nil

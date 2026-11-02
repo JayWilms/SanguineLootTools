@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.40 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.41 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,24 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.40, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.41, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.40
+- Opaque panels and separate drawing-level bands keep each window's content
+  together. Opening/clicking a window raises the entire group of controls.
+- Small dialogs are above their parent and block its mouse input until closed.
+  Nested confirmations retain the correct order; dropdowns stay above dialogs.
+- Timer remains an independent window. Background windows are not hidden just
+  to solve overlap. Collapse/expand and dynamically created controls are covered.
+- Confirmed class-restricted raiders show Auto Pass in Voting rather than waiting
+  or timed out. Unknown eligibility does not cause a pass; explicit responses are
+  preserved. The leader synchronizes late class information and new members.
+- Change winner has a live 0/160-byte reason counter matching response notes.
+- Removed the enforced 16-unit positioning margin. Windows can be placed flush
+  against screen edges while remaining on-screen.
+- Nine local suites passed, including window layering and class auto passes.
+  Native mouse layering, handovers and raid behavior still need in-game checks.
+- Protocol 15 and two-minute test response rounds retained. Update all testers.
 
 NEW SINCE ALPHA.39
 - Voting's winner button becomes Trade for a verified item held by the local
