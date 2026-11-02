@@ -1,0 +1,6 @@
+Sanguine Loot Tools — Private alpha testing licence
+Copyright 2026 Joshua Wilmshurst. All rights reserved.
+
+You may use, copy and share this unmodified candidate with friends and raid members for private, noncommercial evaluation and testing. No broader public or commercial redistribution or relicensing permission is granted by this notice. Contact the project owner for other uses.
+
+This notice applies to Sanguine Loot Tools's original addon and development files. LibItemDB and other third-party addons are not included and retain their own licences and requirements. Supplied independent review material is preserved as received and is not relicensed by this notice.
