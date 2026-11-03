@@ -377,14 +377,17 @@ function A:Publish(p)
         self.publicBaseline=current
         return
     end
+    local corpseAction=type(p.op)=="string" and p.op:match("^corpse")~=nil
     local id=p and p.item
     if current and self.publicBaseline and current.id==self.publicBaseline.id then
         local old=self.publicBaseline
         self:Send({kind="stateDelta",sid=current.id,baseRev=self.rev-1,rev=self.rev,edits=self:StateChanges(old,current)},nil,
-            {key="delta:"..current.id,baseState=old,nextState=current,liveResponse=p.op=="respond" or p.op=="queueLoot" or p.op=="open",release=p.op=="queueLoot"})
+            {key="delta:"..current.id,baseState=old,nextState=current,liveResponse=corpseAction or p.op=="respond" or p.op=="queueLoot" or p.op=="open",release=p.op=="queueLoot"})
     else self:SendView(nil,true) end
     self.publicBaseline=current
-    if self.state then for target in pairs(self.roster) do
+    -- Corpse handshakes do not change private ballots. Their public deltas
+    -- carry the receipt/award without resending every council member's view.
+    if self.state and not corpseAction then for target in pairs(self.roster) do
         if target~=self.me then self:SendPrivate(target,id) end
     end end
 end

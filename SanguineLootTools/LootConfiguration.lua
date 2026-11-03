@@ -79,6 +79,11 @@ function A:CancelPreparedCorpseRoutes()
         if not intent.started and not intent.finished then intent.failed=true end
     end
 end
+local function corpseToken(source,slot,link)
+    -- A remaining, different drop can occupy a previously used loot slot.
+    -- Do not mistake it for the completed assignment from that position.
+    return source..":"..slot..":"..(link:match("item:(%d+)") or "")
+end
 function A:ReduceLootConfiguration(sender,p)
     local s=self.state
     if p.op=="lootConfiguration" then
@@ -105,7 +110,7 @@ function A:ReduceLootConfiguration(sender,p)
         if sender~=s.master or s.masterBlocked or not self:LootConfiguration().automatic then return false,"Master Loot automation is unavailable." end
         local rule=self:AutomaticLootRule(p.quality)
         if not rule or not self:EquipmentLink(p.link) or not int(p.slot,1,40) or type(p.source)~="string" or #p.source>100 or not p.source:match("^[%w%-]+$") then return false,"Invalid corpse item or quality rule." end
-        local token=p.source..":"..p.slot
+        local token=corpseToken(p.source,p.slot,p.link)
         if s.corpseRoutes[token] then return true end
         local total=0
         for key,route in pairs(s.corpseRoutes) do
@@ -188,6 +193,16 @@ function A:NativeCorpseItem(slot)
     if not self:EquipmentLink(link) or quantity~=1 or locked or quest or not int(quality,0,5) or type(source)~="string" or count~=1 then return end
     return {slot=slot,link=link,quality=quality,source=source}
 end
+function A:SendCorpseAction(op,data,key)
+    local sid=self.state and self.state.id
+    if self.corpseActionSID~=sid then self.corpseActionSID=sid;self.corpseActions={} end
+    local now=self.Client:ServerTime()
+    local id=op..":"..(key or data.token)
+    local sent=self.corpseActions[id]
+    if sent and now>=sent and now-sent<5 then return end
+    self.corpseActions[id]=now
+    if self:Act(op,data)==false then self.corpseActions[id]=nil end
+end
 function A:TickLootConfiguration()
     local s=self.state;if not s or self.demo or not self.Client:InRaid() then return end
     if self.corpseSID~=s.id then self.corpseSID=s.id;self.corpseSnapshots={};self.corpseAttempts={};self.routeAttempts={} end
@@ -201,11 +216,13 @@ function A:TickLootConfiguration()
             if intent.target==self.me then
                 if not self.corpseSnapshots[token] then
                     local snapshot=self:CorpseBagSnapshot(intent.link)
-                    if snapshot then self.corpseSnapshots[token]=snapshot;self:Act("corpseReady",{token=token}) end
+                    if snapshot then self.corpseSnapshots[token]=snapshot;self:SendCorpseAction("corpseReady",{token=token}) end
+                elseif not intent.ready then
+                    self:SendCorpseAction("corpseReady",{token=token})
                 elseif intent.ready then
                     local current=self:CorpseBagSnapshot(intent.link);local guid,count=nil,0
                     if current then for candidate in pairs(current) do if not self.corpseSnapshots[token][candidate] then guid,count=candidate,count+1 end end end
-                    if count==1 and not intent.guid then self:Act("corpseReceipt",{token=token,guid=guid,link=intent.link}) end
+                    if count==1 and not intent.guid then self:SendCorpseAction("corpseReceipt",{token=token,guid=guid,link=intent.link}) end
                 end
             end
         end
@@ -224,7 +241,10 @@ function A:TickLootConfiguration()
     if type(GetMasterLootCandidate)~="function" or type(GiveMasterLoot)~="function" or type(GetLootThreshold)~="function" then self.lootRoutingStatus="Native Master Loot APIs unavailable";return end
     for token in pairs(self.corpseAttempts) do
         local pending=s.corpseRoutes and s.corpseRoutes[token]
-        if pending and not pending.finished and not pending.failed and self.Client:ServerTime()-pending.time<=60 then return end
+        if pending and not pending.finished and not pending.failed and self.Client:ServerTime()-pending.time<=60 then
+            self.lootRoutingStatus=pending.cleared and "Awaiting recipient bag confirmation before the next item" or "Awaiting the current Master Loot delivery"
+            return
+        end
     end
     local n=call(GetNumLootItems);local threshold=call(GetLootThreshold)
     if not int(n,0,40) or not int(threshold,0,5) then return end
@@ -232,24 +252,27 @@ function A:TickLootConfiguration()
         local item=self:NativeCorpseItem(slot)
         if item and item.quality<threshold and self:AutomaticLootRule(item.quality) then self.lootRoutingStatus="Configured item is below the game Master Loot threshold; distribute it manually or adjust the game loot threshold." end
         if item and item.quality>=threshold and self:AutomaticLootRule(item.quality) then
-            local token=item.source..":"..slot;local intent=s.corpseRoutes and s.corpseRoutes[token]
-            if not intent then self:Act("corpsePrepare",item);return end
-            if not intent.finished and not intent.failed and intent.ready and intent.by==self.me and intent.link==item.link
-                and intent.revision==(s.lootConfigRevision or 0) and self.Client:ServerTime()-intent.time<=60 and not self.corpseAttempts[token] then
-                local unit=self.roster[intent.target];local candidate
-                if type(unit)=="string" and call(UnitIsConnected,unit)==true then
-                    for index=1,40 do local name=call(GetMasterLootCandidate,slot,index);if name and self:Resolve(name)==intent.target then candidate=index;break end end
-                end
-                if candidate then
-                    if not intent.started then self:Act("corpseStarted",{token=token});return end
-                    self.corpseAttempts[token]={slot=slot}
-                    local ok=self.Client:Invoke(GiveMasterLoot,slot,candidate)
-                    if not ok then self:Act("corpseFailed",{token=token}) end
-                    return
-                end
-                self.lootRoutingStatus="Recipient is not eligible for this corpse item"
-            elseif not intent.ready then self.lootRoutingStatus="Awaiting recipient addon and bag verification" end
-            return -- One corpse item at a time keeps bag evidence unambiguous.
+            local token=corpseToken(item.source,slot,item.link);local intent=s.corpseRoutes and s.corpseRoutes[token]
+            if not intent then self:SendCorpseAction("corpsePrepare",item,token);return end
+            -- Terminal assignments must not prevent inspection of later slots.
+            if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
+                if intent.ready and intent.by==self.me and intent.link==item.link
+                    and intent.revision==(s.lootConfigRevision or 0) and not self.corpseAttempts[token] then
+                    local unit=self.roster[intent.target];local candidate
+                    if type(unit)=="string" and call(UnitIsConnected,unit)==true then
+                        for index=1,40 do local name=call(GetMasterLootCandidate,slot,index);if name and self:Resolve(name)==intent.target then candidate=index;break end end
+                    end
+                    if candidate then
+                        if not intent.started then self:SendCorpseAction("corpseStarted",{token=token});return end
+                        self.corpseAttempts[token]={slot=slot}
+                        local ok=self.Client:Invoke(GiveMasterLoot,slot,candidate)
+                        if not ok then self:Act("corpseFailed",{token=token}) end
+                        return
+                    end
+                    self.lootRoutingStatus="Recipient is not eligible for this corpse item"
+                elseif not intent.ready then self.lootRoutingStatus="Awaiting recipient addon and bag verification" end
+                return -- One corpse item at a time keeps bag evidence unambiguous.
+            end
         end
     end
 end

@@ -1,4 +1,44 @@
-# Alpha.47 raid testing checklist
+# Alpha.49 raid testing checklist
+
+## Alpha.49 automatic assignment latency
+
+Corpse handshake deltas now have live-update priority and do not resend private
+ballot views. Automatic preparation/start/receipt requests use bounded retries
+while waiting for shared state, rather than sending a duplicate every second.
+The two-sided receipt check remains required before the next physical send.
+
+- [ ] With alpha.49 on all participants, time the interval between two
+  automatic boss awards. Confirm both deliveries and award records appear once.
+- [ ] Reproduce with normal response/voting traffic. If a long pause remains,
+  record Loot Configuration's routing status and diagnostics from the Master
+  Looter, raid leader and recipient. No native latency target is verified yet.
+
+## Alpha.48 multiple automatic boss assignments
+
+Completed/failed routes no longer stop inspection of later loot slots. Route
+identity also includes the item ID so a different remaining drop can reuse a
+cleared slot. An unconfirmed first receipt still blocks further physical sends;
+Loot Configuration displays that waiting reason. All 15 local suites pass.
+
+- [ ] Configure two different blue boss drops for the Guild Bank recipient.
+  Keep the corpse open until both arrive. Verify both receive one award and
+  delivery record and the second is sent only after the first is confirmed.
+- [ ] Check two identical drops with stable slots, eligibility restrictions,
+  recipient bag space and an unavailable recipient. Record the routing status
+  shown in Settings > Loot Configuration if the next item stays on the boss.
+
+## Alpha.48 scrollable Timer
+
+Timer now has a clipped, scrollable list instead of pages. Headings stay fixed;
+mouse wheel, scrollbar arrows and draggable thumb use the shared scroll controls.
+All 15 local suites pass; native interaction still needs confirmation.
+
+- [ ] Track more items than fit in Timer. Scroll to the last item with the mouse
+  wheel, scrollbar arrows and thumb. Verify the first/last items are reachable.
+- [ ] Leave Timer scrolled while countdowns refresh. Its position should stay.
+  Resize it and deliver items near the bottom; the position should clamp safely.
+- [ ] Check minimum/maximum sizes, empty lists, collapse/expand, Escape and the
+  close button. Column headings should stay above the list without clipping.
 
 ## Alpha.47 Voting reopen fix
 
@@ -16,7 +56,7 @@ headings and vote summaries above the background when the window reopens.
 Classic bag-tooltip fallback for raid trade timers and Timer staying open on
 Escape are included in alpha.46. All 13 local suites pass; native checks remain.
 
-- [ ] With alpha.47 on the holder and raid clients, verify a soulbound
+- [ ] With alpha.49 on the holder and raid clients, verify a soulbound
   raid drop with a visible trade timer shows a countdown in both Loot and Timer.
   Existing tracked copies should refresh from the holder's bag scan without
   another pickup or manual addition. Allow 20 seconds outside combat for a scan.
@@ -54,7 +94,7 @@ the regression check reproduces the blocked option clicks before this fix.
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.47**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.49**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.

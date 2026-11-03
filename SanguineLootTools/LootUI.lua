@@ -287,7 +287,7 @@ function A:FitTimerItemName(link,measure,width)
 end
 
 function A:BuildLootTimerUI(u,window,text,button)
-    local p={page=0,rows={}}
+    local p={rows={}}
     u.lootTimers=p
     p.window=window("SanguineLootCouncilTimer","Sanguine Loot Tools - Timer",600,320,nil,false)
     p.itemHeader=text(p.window,"Item",11,24,-50,210)
@@ -295,9 +295,15 @@ function A:BuildLootTimerUI(u,window,text,button)
     p.holderHeader=text(p.window,"Holder",11,420,-50,155)
     p.empty=text(p.window,"No loot timers to show.",13,24,-170,550)
     p.empty:SetJustifyH("CENTER")
-    for i=1,8 do
-        local row=CreateFrame("Frame",nil,p.window)
-        row:SetPoint("TOPLEFT",18,-68-(i-1)*44);row:SetSize(564,42);row:EnableMouse(false)
+    p.scroll=self:CreateScrollFrame(p.window)
+    p.scroll:SetPoint("TOPLEFT",18,-68);p.scroll:SetSize(546,232)
+    p.child=CreateFrame("Frame",nil,p.scroll)
+    p.child:SetSize(546,1);p.scroll:SetScrollChild(p.child)
+    -- Active tracking is bounded at 80 copies. Keep each physical copy in the
+    -- scroll child so mouse wheel and scrollbar expose the complete list.
+    for i=1,80 do
+        local row=CreateFrame("Frame",nil,p.child)
+        row:SetPoint("TOPLEFT",0,-(i-1)*44);row:SetSize(546,42);row:EnableMouse(false)
         self:StyleDataRow(row,i)
         row.icon=row:CreateTexture(nil,"ARTWORK");row.icon:SetPoint("TOPLEFT",4,-4);row.icon:SetSize(34,34)
         row.caption=text(row,"",11,46,-13,170);row.caption:SetHeight(16);row.caption:SetMaxLines(1);row.caption:SetWordWrap(false)
@@ -310,9 +316,40 @@ function A:BuildLootTimerUI(u,window,text,button)
         row.holderStatus=text(row,"",9,402,-25,155);row.holderStatus:SetMaxLines(1)
         p.rows[i]=row
     end
-    p.previous=button(p.window,"<",20,-350,35,function() p.page=math.max(0,p.page-1);A:RenderLootTimers() end)
-    p.next=button(p.window,">",60,-350,35,function() p.page=p.page+1;A:RenderLootTimers() end)
-    p.pageLabel=text(p.window,"",10,110,-358,280)
+    self:LayoutLootTimer()
+end
+
+function A:LayoutLootTimer()
+    local p=self.ui.lootTimers
+    local w,h=p.window:GetWidth(),p.window:GetHeight()
+    local width=w-54
+    p.scroll:SetSize(width,math.max(44,h-88));p.child:SetWidth(width)
+    local itemWidth=math.max(90,w-448)
+    local timeX=itemWidth+62
+    local timeWidth=math.min(145,math.max(100,w*.23))
+    local holderX=timeX+timeWidth+16
+    local holderWidth=math.max(40,width-holderX-8)
+    p.itemHeader:SetWidth(itemWidth+30)
+    p.timeHeader:ClearAllPoints();p.timeHeader:SetPoint("TOPLEFT",p.window,"TOPLEFT",18+timeX,-50);p.timeHeader:SetWidth(timeWidth)
+    p.holderHeader:ClearAllPoints();p.holderHeader:SetPoint("TOPLEFT",p.window,"TOPLEFT",18+holderX,-50);p.holderHeader:SetWidth(holderWidth)
+    for _,header in ipairs({p.itemHeader,p.timeHeader,p.holderHeader}) do header:SetTextColor(.80,.74,.57) end
+    p.empty:SetWidth(w-48)
+    for _,row in ipairs(p.rows) do
+        row:SetWidth(width);row.caption:SetWidth(itemWidth)
+        row.bar:ClearAllPoints();row.bar:SetPoint("TOPLEFT",timeX,-12);row.bar:SetWidth(timeWidth);row.countdown:SetWidth(timeWidth-4)
+        row.holder:ClearAllPoints();row.holder:SetPoint("TOPLEFT",holderX,-7);row.holder:SetWidth(holderWidth)
+        row.holderStatus:ClearAllPoints();row.holderStatus:SetPoint("TOPLEFT",holderX,-25);row.holderStatus:SetWidth(holderWidth)
+    end
+    self:ClampLootTimerScroll()
+end
+
+function A:ClampLootTimerScroll(reset)
+    local p=self.ui.lootTimers
+    local height=math.max(1,(p.count or 0)*44-2)
+    p.child:SetHeight(height)
+    local maximum=math.max(0,height-p.scroll:GetHeight())
+    p.scroll:SetVerticalScroll(reset and 0 or math.min(p.scroll:GetVerticalScroll(),maximum))
+    self:RefreshScrollChrome(p.scroll,maximum)
 end
 
 function A:ShowLootTimers()
@@ -323,23 +360,21 @@ function A:RenderLootTimers()
     local p=self.ui and self.ui.lootTimers
     if not p then return end
     local sid=self.state and self.state.id
-    if p.sid~=sid then p.sid,p.page=sid,0 end
+    local reset=p.sid~=sid
+    p.sid=sid
     local rows={}
     for _,entry in ipairs(self.state and self.state.trackedLoot or {}) do
         if entry.delivery~="delivered" then rows[#rows+1]=entry end
     end
-    -- Stable identities keep rows/pages steady while their countdowns change.
+    -- Stable identities keep rows steady while their countdowns change.
     table.sort(rows,function(a,b) return a.id<b.id end)
-    local pages=math.max(1,math.ceil(#rows/(p.visibleRows or 6)))
-    p.count,p.page=#rows,math.max(0,math.min(p.page,pages-1))
+    p.count=#rows
     p.empty:SetShown(#rows==0)
     p.empty:SetText(self.demo and "No demo loot timers yet. Award an item in Voting first." or "No loot timers to show.")
-    p.previous:SetEnabled(p.page>0);p.next:SetEnabled(p.page+1<pages)
-    p.previous:SetShown(pages>1);p.next:SetShown(pages>1);p.pageLabel:SetShown(pages>1)
-    p.pageLabel:SetText("Page "..(p.page+1).." / "..pages)
+    self:ClampLootTimerScroll(reset)
     local cfg=self:WarningSettings()
     for i,row in ipairs(p.rows) do
-        local entry=i<=(p.visibleRows or 6) and rows[p.page*(p.visibleRows or 6)+i] or nil;row:SetShown(entry~=nil);row.tracked=entry and entry.id
+        local entry=rows[i];row:SetShown(entry~=nil);row.tracked=entry and entry.id
         if entry then
             row.icon:SetTexture(self:ItemIcon(entry))
             local key=entry.link..":"..row.caption:GetWidth()

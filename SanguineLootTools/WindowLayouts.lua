@@ -392,7 +392,8 @@ function A:LayoutReadableWindow(frame)
         if height then object:SetHeight(height) end
     end
     if frame==u.settingsHub then self:LayoutSettings();return end
-    if frame==u.lootPanels.deliveries.window or frame==u.lootTimers.window then
+    if frame==u.lootTimers.window then self:LayoutLootTimer();return end
+    if frame==u.lootPanels.deliveries.window then
         local isLoot=frame==u.lootPanels.deliveries.window
         local p=isLoot and u.lootPanels.deliveries or u.lootTimers
         local old=p.visibleRows or 6

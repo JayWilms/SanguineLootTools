@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.47 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.49 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,22 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.47, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.49, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.48
+- Automatic assignment handshakes use live-update priority without resending
+  unrelated private ballot views. Repeated requests have bounded retries.
+- Recipient bag confirmation remains required before the next item is sent.
+- All fifteen local suites pass. Improvement to the reported 45-second delay
+  still needs native raid confirmation. Protocol 15 retained.
+
+NEW SINCE ALPHA.47
+- Timer uses one clipped list with a mouse wheel, scrollbar arrows and draggable
+  thumb. Headings stay fixed; countdown refreshes preserve scroll position.
+- Automatic boss assignments skip terminal routes and distinguish different
+  drops reusing a loot slot. Receipt confirmation still gates the next send.
+- Loot Configuration shows when recipient bag confirmation is pending.
+- All fifteen local suites pass. Native raid and scroll checks remain pending.
 
 NEW SINCE ALPHA.46
 - Voting details, headings, images and controls belong to the voting surface
