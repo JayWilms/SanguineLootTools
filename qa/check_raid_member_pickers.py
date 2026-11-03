@@ -37,7 +37,7 @@ function choose(role,name)
     local menu=A.ui.settingsDropdown
     for i,choice in ipairs(menu.choices) do
         if choice[2]==name then
-            A:ScrollSettingsDropdown(i-1);menu.rows[i-menu.offset]:Click();return
+            A:ScrollSettingsDropdown(i-1);ClickDropdownRow(menu.rows[i-menu.offset]);return
         end
     end
     error('Missing choice '..name)

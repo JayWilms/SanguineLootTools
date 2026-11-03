@@ -41,7 +41,7 @@ function methods:IsVisible() local parent=rawget(self,'parent');return self.show
 function methods:IsEnabled() return self.enabled end
 function methods:SetEnabled(enabled) self.enabled=enabled end
 function methods:SetShown(shown) if shown then self:Show() else self:Hide() end end
-function methods:SetFrameLevel(level) self.level=level end
+function methods:SetFrameLevel(level) self.level=math.max(0,math.min(10000,level)) end
 function methods:SetFrameStrata(strata) self.strata=strata end
 function methods:EnableMouse(enabled) self.mouse=enabled end
 function methods:SetMinMaxValues(minimum,maximum) self.minimum,self.maximum=minimum,maximum end
@@ -60,6 +60,17 @@ function methods:SetFontString(fontstring) self.fontstring=fontstring end
 function methods:CreateFontString() return CreateFrame('FontString',nil,self) end
 function methods:GetHighlightTexture() return CreateFrame('Texture',nil,self) end
 function methods:Click() assert(self.scripts.OnClick);self.scripts.OnClick(self) end
+-- A direct OnClick call bypasses the native hit test. Check which dropdown
+-- layer receives input before dispatching a simulated option click.
+function ClickDropdownRow(row)
+    local menu=A.ui.settingsDropdown
+    local dismiss=A.ui.settingsDropdownDismiss
+    assert(row:IsVisible() and row.mouse and row:IsEnabled())
+    assert(row.strata==menu.strata and menu.strata==dismiss.strata)
+    assert(menu.level>dismiss.level,'outside-click catcher covers dropdown')
+    assert(row.level>menu.level,'dropdown background covers option')
+    row:Click()
+end
 UIParent=CreateFrame('Frame')
 SanguineLootCouncilDB={raidSetupRevision=0}
 '''
@@ -119,7 +130,7 @@ lua=setup()
 for i,label,stored in [(1,'Disenchanted','Disenchant'),(2,'Guild Bank','Guild Bank'),(3,'Other','Other')]:
     lua.execute('A:OpenLootReason(4);A.ui.lootReasonPreset:Click();A:CaptureWindowBody(A.ui.settingsHub)')
     assert lua.eval(f'A.ui.settingsDropdown.rows[{i}].label:GetText()')==label
-    lua.execute(f'A.ui.settingsDropdown.rows[{i}]:Click()')
+    lua.execute(f'ClickDropdownRow(A.ui.settingsDropdown.rows[{i}])')
     assert lua.eval('A.ui.lootReasonPreset:GetText()')==label
     lua.execute("A.ui.lootReasonRecipient:SetText('Hozfir-WildGrowth');A.ui.lootReasonNote:SetText('Raid test');A.ui.lootReasonSave:Click()")
     assert lua.eval('SanguineLootCouncilDB.lootConfiguration.rules[4].reason')==stored
@@ -167,7 +178,7 @@ for _,selection in ipairs({3,1,2,3,2,1,3}) do
         assert(b.strata==menu.strata and b.level>menu.level)
         assert(menu.level>A.ui.settingsDropdownDismiss.level)
     end
-    menu.rows[selection]:Click()
+    ClickDropdownRow(menu.rows[selection])
     assert(A:LootConfiguration().rules[4].action==values[selection])
     assert(not menu:IsShown() and not A.ui.settingsDropdownDismiss:IsShown())
     A:RenderLootConfigurationUI()
@@ -180,11 +191,13 @@ local recipient=A.ui.lootQualityRows[4].recipient
 recipient:Click()
 local menu=A.ui.settingsDropdown
 assert(#menu.choices==42 and menu.slider:IsVisible())
+assert(menu.slider.level>menu.level and menu.down.level>menu.level and menu.up.level>menu.level)
+assert(menu.slider.level<=10000 and menu.down.level<=10000 and menu.up.level<=10000)
 menu.down:Click();assert(menu.offset==1)
 menu.rows[3].scripts.OnMouseWheel(menu.rows[3],-1);assert(menu.offset==2)
 menu.slider:SetValue(34);assert(menu.offset==34)
 local target=menu.choices[menu.offset+7][2]
-menu.rows[7]:Click()
+ClickDropdownRow(menu.rows[7])
 assert(A:LootConfiguration().rules[4].target==target)
 recipient:Click();assert(menu.offset==0)
 menu.rows[1]:Click();assert(A:LootConfiguration().rules[4].target=='@master')

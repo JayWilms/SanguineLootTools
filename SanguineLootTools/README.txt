@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.44 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.45 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,14 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.44, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.45, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.44
+- Corrected shared dropdown layers so the outside-click catcher sits below
+  the menu and its clickable options within the native frame-level limit.
+- Regression checks now enforce the limit and option input ordering for both
+  raid member pickers and other shared dropdowns. All twelve suites pass.
+- Native mouse interaction still needs in-game confirmation.
 
 NEW SINCE ALPHA.43
 - Settings > Council has current-group dropdowns for Master Looter and council.

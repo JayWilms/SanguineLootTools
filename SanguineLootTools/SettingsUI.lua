@@ -352,19 +352,21 @@ function A:OpenSettingsDropdown(owner,choices,action)
     if not menu then
         local dismiss=CreateFrame("Frame",nil,UIParent)
         u.settingsDropdownDismiss=dismiss
-        dismiss:SetAllPoints(UIParent);dismiss:SetFrameStrata("FULLSCREEN_DIALOG");dismiss:SetFrameLevel(10000)
+        -- Reserve headroom below the native 10000 limit. Values above it can
+        -- collapse onto the catcher level and prevent options receiving clicks.
+        dismiss:SetAllPoints(UIParent);dismiss:SetFrameStrata("FULLSCREEN_DIALOG");dismiss:SetFrameLevel(9000)
         dismiss:EnableMouse(true);dismiss:SetScript("OnMouseUp",function() A:CloseSettingsDropdown() end)
         dismiss:EnableMouseWheel(true);dismiss:SetScript("OnMouseWheel",function() A:CloseSettingsDropdown() end)
         dismiss:Hide()
         -- Direct child buttons avoid ScrollFrame hit-testing/layer changes.
         -- Every interactive layer is explicitly above the outside-click catcher.
         menu=CreateFrame("Frame",nil,UIParent,"BackdropTemplate");menu.rows={}
-        menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetFrameLevel(10010)
+        menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetFrameLevel(9010)
         menu:HookScript("OnHide",function() dismiss:Hide();menu.owner=false;menu.action=nil;menu.choices=nil end)
         local function wheel(_,delta) A:ScrollSettingsDropdown(-delta) end
         menu:EnableMouseWheel(true);menu:SetScript("OnMouseWheel",wheel)
         menu.slider=CreateFrame("Slider",nil,menu,"BackdropTemplate")
-        menu.slider:SetFrameStrata("FULLSCREEN_DIALOG");menu.slider:SetFrameLevel(10014)
+        menu.slider:SetFrameStrata("FULLSCREEN_DIALOG");menu.slider:SetFrameLevel(9014)
         menu.slider:SetPoint("TOPRIGHT",-5,-22);menu.slider:SetPoint("BOTTOMRIGHT",-5,22);menu.slider:SetWidth(12)
         menu.slider:SetOrientation("VERTICAL");menu.slider:SetValueStep(1)
         if menu.slider.SetObeyStepOnDrag then menu.slider:SetObeyStepOnDrag(true) end
@@ -378,7 +380,7 @@ function A:OpenSettingsDropdown(owner,choices,action)
         menu.slider:EnableMouseWheel(true);menu.slider:SetScript("OnMouseWheel",wheel)
         for _,key in ipairs({"up","down"}) do
             local b=CreateFrame("Button",nil,menu)
-            menu[key]=b;b:SetSize(16,16);b:SetFrameStrata("FULLSCREEN_DIALOG");b:SetFrameLevel(10014)
+            menu[key]=b;b:SetSize(16,16);b:SetFrameStrata("FULLSCREEN_DIALOG");b:SetFrameLevel(9014)
             b:SetPoint(key=="up" and "TOPRIGHT" or "BOTTOMRIGHT",-3,key=="up" and -3 or 3)
             A:StyleRailArrow(b,key=="up" and -1 or 1,10)
             b:EnableMouse(true);b:RegisterForClicks("LeftButtonUp")
@@ -387,7 +389,7 @@ function A:OpenSettingsDropdown(owner,choices,action)
         end
         for i=1,8 do
             local b=CreateFrame("Button",nil,menu)
-            menu.rows[i]=b;b:SetFrameStrata("FULLSCREEN_DIALOG");b:SetFrameLevel(10012)
+            menu.rows[i]=b;b:SetFrameStrata("FULLSCREEN_DIALOG");b:SetFrameLevel(9012)
             b:EnableMouse(true);b:RegisterForClicks("LeftButtonUp")
             b.label=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
             b.label:SetAllPoints();b.label:SetMaxLines(1);b.label:SetJustifyH("LEFT");b:SetFontString(b.label)

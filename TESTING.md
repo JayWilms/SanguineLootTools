@@ -1,4 +1,19 @@
-# Alpha.44 raid testing checklist
+# Alpha.45 raid testing checklist
+
+## Alpha.45 dropdown click fix
+
+Dropdown input layers now stay below the native frame-level limit, with options
+above the menu background and outside-click catcher. All 12 local suites pass;
+the regression check reproduces the blocked option clicks before this fix.
+
+- [ ] After installing alpha.45, select Master Looter
+  and council members using both picker buttons and arrows. Confirm the selected
+  name fills the field, then apply with Assign or Add / remove.
+- [ ] Select members near the end of a full raid list using the wheel, arrows
+  and scrollbar. Reopen each picker and select another member.
+- [ ] Check other shared dropdowns (loot actions, recipients and assignment
+  reasons), including a reason dialog above Settings. Outside clicks should
+  dismiss the menu and restore ordinary window clicks.
 
 ## Alpha.44 raid member pickers
 
@@ -12,7 +27,7 @@
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.44**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.45**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.
