@@ -4,7 +4,7 @@ from lupa.lua51 import LuaRuntime
 root=Path(__file__).resolve().parent.parent
 source=root/'SanguineLootTools'
 
-def peer(name, before=False, identical=False, salvage=False):
+def peer(name, before=False, identical=False, salvage=False, native=False):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute('''
 A={};SlashCmdList={};now=0;outbox={};bags={};gives={};NUM_BAG_SLOTS=0;combat=false
@@ -14,6 +14,8 @@ function CreateFrame() return {RegisterEvent=function() end,SetScript=function()
                    'Responses','Warnings','Loot','LootConfiguration','WireCodec','StateDelta','Network']:
         path=root/'qa/fixtures/LootConfiguration-alpha50.lua' if before and module=='LootConfiguration' else source/(module+'.lua')
         lua.execute(path.read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
+    if native:
+        lua.execute((source/'NativeLoot.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
     lua.globals().peerName=name
     lua.execute('''
 A.me=peerName;A.leader='Master-Realm'
@@ -58,13 +60,13 @@ function GetLootSlotLink(slot)
     local item=slots[slot];return item and itemLink(item.id,item.name,25)
 end
 function GetLootSlotInfo(slot)
-    if slots[slot] then return 1,slots[slot].name,1,nil,slots[slot].quality or 3,false,false end
+    if slots[slot] then return 1,slots[slot].name,slots[slot].quantity or 1,nil,slots[slot].quality or 3,false,false end
 end
-function GetLootSourceInfo(slot) if slots[slot] then return 'Creature-Boss',1 end end
+function GetLootSourceInfo(slot) if slots[slot] then return 'Creature-Boss',slots[slot].quantity or 1 end end
 function GiveMasterLoot(slot,index)
     assert(index==1 and slots[slot])
     local item=slots[slot]
-    gives[#gives+1]={at=now,slot=slot,id=item.id,name=item.name}
+    gives[#gives+1]={at=now,slot=slot,id=item.id,name=item.name,quantity=item.quantity or 1}
     slots[slot]=nil
     A:LootConfigurationEvent('LOOT_SLOT_CLEARED',slot)
 end

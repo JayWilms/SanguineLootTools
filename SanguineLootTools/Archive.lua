@@ -57,7 +57,7 @@ function A:ReduceArchive(sender,p)
                 by=sender,item=self:PublicItem(item),tracked=self.Copy(entry)}
         end
         removeItems[item.id],removeCopies[entry.id]=true,true
-        s.retiredGUIDs[entry.guid]=true
+        if entry.guid then s.retiredGUIDs[entry.guid]=true end
     end
     local items,copies={},{}
     for _, item in ipairs(s.items) do if not removeItems[item.id] then items[#items+1]=item end end

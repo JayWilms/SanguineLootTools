@@ -77,6 +77,11 @@ function A:DiagnosticReport()
     end
     lines[#lines+1]=string.format("Automatic assignments pending: %d recipient ready | %d start | %d corpse clear | %d bag receipt | %d expired | %ds oldest",ready,start,clear,receipt,expired,oldest)
     lines[#lines+1]=string.format("Stackable material routes requiring manual distribution: %d",stacked)
+    local native=self.nativeLoot
+    local pendingNative=0
+    for _ in pairs(native and native.pending or {}) do pendingNative=pendingNative+1 end
+    lines[#lines+1]=string.format("Native distribution: %d confirmed | %d unconfirmed/failed | %d records pending | %d recording errors | active send %s",
+        native and native.confirmed or 0,native and native.failed or 0,pendingNative,native and native.recordErrors or 0,native and native.active and "yes" or "no")
     lines[#lines+1]="API presence (presence alone does not verify behaviour):"
     for _,api in ipairs(self.Client:APIInventory()) do lines[#lines+1]=api.name..": "..(api.available and "present" or "MISSING") end
     lines[#lines+1]="Recording: "..(self.diagnosticRecording and "on" or "off").." | latest 200 events, current login only"

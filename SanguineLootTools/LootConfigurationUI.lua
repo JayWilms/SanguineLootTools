@@ -18,7 +18,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
     local collection=group("collection","Collection")
     switch(u.lootPanels.timer.auto)
     u.lootPanels.timer.auto:SetScript("OnClick",function() local c=A:LootConfiguration();c.collection=not c.collection;A:SaveLootConfiguration(c) end)
-    row(collection,"Automatic collection","Detect eligible new items in raid members' bags. Already tracked items keep refreshing.",0,u.lootPanels.timer.auto,76)
+    row(collection,"Automatic collection","Collect council loot into the Master Looter's bags and detect eligible pickups. Existing tracking keeps refreshing.",0,u.lootPanels.timer.auto,76)
     u.lootMinimum=button(collection,"",0,0,180,function() end)
     dropdown(u.lootMinimum,{{"Green and above",2},{"Blue and above",3},{"Epic and above",4},{"Legendary only",5}},function(v) local c=A:LootConfiguration();c.minimum=v;A:SaveLootConfiguration(c) end)
     row(collection,"Council collection threshold","Applies to Collect for council rules, including items with a trade timer.",72,u.lootMinimum)
@@ -111,12 +111,12 @@ function A:RenderLootConfigurationUI()
         elseif not intent.finished then pending=pending+1 end
     end
     local summary=(pending>0 or failed>0) and (" | Corpse assignments: "..pending.." awaiting verification, "..failed.." unresolved") or ""
-    u.lootRoutingStatus:SetText((editable and "Raid Leader controls" or "View only • Raid Leader controls").." | "..(self.demo and "Test mode: physical distribution disabled" or self.lootRoutingStatus or (c.automatic and "Automatic rules enabled; corpse delivery requires recipient bag verification" or "Automatic assignment off"))..summary)
+    u.lootRoutingStatus:SetText((editable and "Raid Leader controls" or "View only • Raid Leader controls").." | "..(self.demo and "Test mode: physical distribution disabled" or self.lootRoutingStatus or (c.collection and "Council collection enabled; eligible loot goes to the Master Looter unawarded" or c.automatic and "Automatic assignment enabled" or "Automatic collection and assignment off"))..summary)
     for i,row in ipairs(u.lootQualityRows) do
         local r=c.rules[i];row.action:SetText(actions[r.action]);row.action:SetEnabled(editable)
-        row.recipient:SetText(r.target=="@master" and "Current Master Looter" or r.target~="" and r.target or "Choose recipient")
+        row.recipient:SetText(r.action=="council" and "Current Master Looter" or r.target=="@master" and "Current Master Looter" or r.target~="" and r.target or "Choose recipient")
         row.recipient:SetEnabled(editable and r.action=="assign");row.reason:SetEnabled(editable and r.action=="assign")
-        row.help:SetText(r.action=="assign" and ((r.reason~="" and (reasonLabels[r.reason] or r.reason) or "Set a reason before enabling automation")..(r.note~="" and " • "..r.note or "")) or r.action=="ignore" and "Excluded from automatic collection; manual Add loot remains available." or "Collected above your threshold. Queue from Loot to start responses; no winner is chosen automatically.")
+        row.help:SetText(r.action=="assign" and ((r.reason~="" and (reasonLabels[r.reason] or r.reason) or "Set a reason before enabling automation")..(r.note~="" and " • "..r.note or "")) or r.action=="ignore" and "Excluded from automatic collection; manual Add loot remains available." or "With collection enabled, eligible single-copy loot goes to the Master Looter unawarded. Queue from Loot for responses.")
     end
     if not editable then u.lootReason:Hide();self.lootReasonContext=nil end
     self:LayoutLootConfiguration()

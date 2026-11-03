@@ -450,11 +450,17 @@ function A:HostRequest(sender, p)
     if type(p)=="table" and p.op=="lootReport" then p.reportHolder=sender end
     local ok, why, unchanged = self:Reduce(sender, p)
     if not ok then
+        if type(p)=="table" and p.op=="corpseNativeReceipt" and self.NativeRecordFailure then
+            if sender==self.me then self:NativeRecordFailure(p.token,why)
+            else self:Send({kind="nativeReceiptError",sid=self.state and self.state.id,token=p.token,reason=why},sender) end
+            return false
+        end
         if self:QuietBackgroundRejection(p,why) then return false end
         if sender == self.me then self:Print(why)
         else self:Send({kind = "error", message = why, responseRequest=type(p)=="table" and p.op=="respond" and responseRequest or nil}, sender) end
         return false
     end
+    if self.AckNativeReceipt then self:AckNativeReceipt(sender,p) end
     if unchanged==true and type(p.op)=="string" and p.op:match("^corpse") then
         self.networkMetrics=self.networkMetrics or {}
         self.networkMetrics.duplicateCorpseRequests=(self.networkMetrics.duplicateCorpseRequests or 0)+1
@@ -500,6 +506,7 @@ function A:Packet(sender, packet)
         self.networkMetrics.protocolMismatches=(self.networkMetrics.protocolMismatches or 0)+1
         return
     end
+    if self.NativeLootPacket and self:NativeLootPacket(sender,packet) then return end
     if packet.kind == "request" and self:IsLeader() then
         self:HostRequest(sender, packet.data)
     elseif packet.kind == "sync" and self:IsLeader() then
@@ -666,8 +673,12 @@ function A:Receive(prefix, message, channel, rawSender)
         end
         local metric=ok and "decodedPackets" or "decodeFailures"
         self.networkMetrics[metric]=(self.networkMetrics[metric] or 0)+1
-        if ok and (largeMaster or oversized) and (type(packet)~="table" or packet.kind~="request" or type(packet.data)~="table"
-            or packet.data.op~="queueLoot" or type(packet.data.entries)~="table" or #packet.data.entries>40) then return end
+        if ok and (largeMaster or oversized) then
+            local request=type(packet)=="table" and packet.kind=="request" and type(packet.data)=="table" and packet.data
+            local release=request and request.op=="queueLoot" and type(request.entries)=="table" and #request.entries<=40
+            local native=request and request.op=="corpseNativeReceipt" and self.state and sender==self.state.master and #payload<=4096
+            if not release and not native then return end
+        end
         if ok then self:Packet(sender, packet) end
     end
 end

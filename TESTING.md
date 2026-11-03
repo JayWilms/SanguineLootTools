@@ -1,4 +1,64 @@
-# Alpha.53 raid testing checklist
+# Raid testing checklist
+
+## Alpha.54: native distribution (protocol 16)
+
+This change is included in the alpha.54 installer. Alpha.53 deliberately
+leaves stackable greens for manual distribution; the new distributor supports
+native Master Loot quantities, including merges into existing material stacks.
+All participants testing this change must use the same alpha.54 protocol-16
+build. Do not mix it with alpha.53 or resume an old protocol-15 test session.
+
+- [ ] Start a normal raid session with the actual game Master Looter configured.
+  Enable automatic assignment explicitly; resuming a saved session disables it.
+  Set Green and Blue to Assign automatically, with the intended player and
+  Guild Bank, Disenchanted or Other reason. Set the game's Master Loot threshold
+  to Green as well. The addon's collection threshold alone does not change it.
+- [ ] With the recipient already carrying Grime-Encrusted Salvage, open a boss
+  containing several green stacks and blue items. Verify every eligible slot
+  moves, the bag quantities are correct and each delivery has one history record.
+- [ ] Repeat with no existing material stack, multiple units in one loot slot,
+  identical drops, and a different player acting as raid leader.
+- [ ] Measure time to the first physical transfer, gaps between later transfers,
+  and time for shared Loot/history records separately. Background recording may
+  finish later; it must not delay the next physical transfer.
+- [ ] On a controlled test, disable the recipient's addon. Eligible native Master
+  Loot transfers should still work. Restore it before testing shared views.
+- [ ] Check that a full bag or ineligible recipient does not create a Delivered
+  record, repeatedly attempt the same failed slot, or block other eligible drops.
+- [ ] Close/reopen the corpse, turn automatic assignment off, and repeat with
+  the final drop automatically closing the empty loot window. No duplicate or
+  missing confirmed delivery should appear. Queue All must not reroll deliveries.
+- [ ] Confirm Loot labels these as native Master Loot deliveries. Native source,
+  slot and quantity are recorded; no bag GUID or later trade timer is invented.
+  Council awards and ordinary bag-to-player trades retain their existing flow.
+
+For failures, capture `/slt diagnostics` from the actual Master Looter and leader
+before ending the session, together with the item, quantity, recipient bag space
+and elapsed physical-transfer time. Native distribution counters distinguish
+confirmed transfers, unconfirmed attempts and background records still pending.
+
+### Automatic Collect for council
+
+- [ ] Set Epic to Collect for council, Automatic collection on, and the council
+  collection threshold to Epic or lower. Automatic assignment can stay off.
+  Open the corpse as the actual Master Looter with the game threshold set to
+  Epic or lower. Eligible single-copy epics should move into the ML's bags.
+- [ ] Check Loot and Timer: the actual ML is Holder, the real bag trade timer
+  remains available, and there is no winner, award history or Delivered status.
+  Queue the item for normal responses/voting, award it, then trade normally.
+- [ ] Repeat with an unbound item and an older identical item already carried.
+  Only the new copy should be discovered from the native pickup evidence.
+- [ ] Test with separate raid leader and Master Looter. The ML collects the
+  items; the leader's shared Loot view updates through normal bag reports.
+- [ ] Turn Automatic collection off, raise its threshold, or choose Ignore.
+  Each should stop council pickup for the affected quality. Assignment rules
+  still use their separate Automatic assignment switch and nominated recipient.
+- [ ] Verify ineligible targets, full bags, combat and unavailable bag APIs
+  cannot create a false pickup/award. Known stackable council items stay on the
+  corpse with a manual-distribution status, since council voting requires
+  separate item copies. Stacked Assign automatically drops retain native routing.
+
+## Historical alpha.53 behaviour
 
 ## Alpha.53 stacked materials no longer block equipment
 

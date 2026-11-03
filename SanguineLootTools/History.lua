@@ -50,7 +50,7 @@ function A:FormatAwardHistory(record, player)
     local lines = {
         (player and record.winner ~= player and "[Corrected away] " or "") .. date("%d %b %Y %H:%M", record.time or 0)
             .. " | " .. tostring(record.winner) .. " | " .. (record.responseLabel or self.responses[record.response] or "Unknown"),
-        (record.item or "Unknown item") .. " (" .. (record.votes or 0) .. " votes)" .. (record.timeSource ~= "award" and " [time observed]" or ""),
+        (record.item or "Unknown item") .. ((record.quantity or 1)>1 and (" ×"..record.quantity) or "") .. " (" .. (record.votes or 0) .. " votes)" .. (record.timeSource ~= "award" and " [time observed]" or ""),
     }
     if record.awardReason then lines[#lines+1]="Assignment reason: "..record.awardReason..(record.awardNote and record.awardNote~="" and " | "..record.awardNote or "")..(record.automatic and " (quality rule)" or "") end
     if #(record.corrections or {}) > 0 then
@@ -64,7 +64,7 @@ function A:FormatAwardHistory(record, player)
     end
     if record.delivery then
         local delivery = record.delivery
-        lines[#lines + 1] = "Delivery: " .. delivery.status .. " | Recorded holder: " .. delivery.holder .. (delivery.method=="automatic" and " (game-confirmed trade)" or delivery.method=="masterloot" and " (Master Loot and verified recipient bag)" or " (manual tracking)")
+        lines[#lines + 1] = "Delivery: " .. delivery.status .. " | Recorded holder: " .. delivery.holder .. (delivery.method=="automatic" and " (game-confirmed trade)" or delivery.method=="masterloot_native" and " (native Master Loot confirmation; bag GUID unverified)" or delivery.method=="masterloot" and " (Master Loot and verified recipient bag)" or " (manual tracking)")
         for _, event in ipairs(delivery.log or {}) do
             lines[#lines + 1] = "Delivery log: " .. date("%d %b %Y %H:%M", event.time) .. " | " .. event.action .. " | by " .. tostring(event.by) .. (event.to and (" | to " .. event.to) or "")
         end

@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.53 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.54 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,23 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.53, protocol 15. Commands use /slt.
+Everyone testing together must use alpha.54, protocol 16. Commands use /slt.
+Start a new normal raid session; do not resume an old protocol-15 session.
+
+NEW SINCE ALPHA.53
+- Eligible automatic assignments use local native Master Loot confirmation.
+  The next item does not wait for recipient addon messages or history sync.
+- Green materials can merge into existing stacks. Native records retain
+  quantities and distribution evidence without inventing physical bag GUIDs.
+- Collect for council moves eligible single-copy loot into the actual Master
+  Looter's bags, unawarded. Enable Automatic collection and satisfy both the
+  council collection and game Master Loot thresholds. Queue for normal voting.
+  Real bag GUIDs and trade timers remain tracked. Council stacks remain manual.
+- Final Assign automatically rules still require Automatic assignment enabled,
+  a nominated recipient and a reason. Resuming a session disables that switch.
+- Pending result recording is retried in the background. Duplicate results
+  cannot recreate an award; failed or unconfirmed gives are not marked delivered.
+- All seventeen local suites pass. Native client timing still needs raid testing.
 
 NEW SINCE ALPHA.52
 - Existing stacks and known stackable materials are reported as requiring

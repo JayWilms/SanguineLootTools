@@ -192,7 +192,7 @@ function A:RenderLootWindows()
             if level=="urgent" then row.caption:SetTextColor(1,0.3,0.2)
             elseif level=="early" then row.caption:SetTextColor(1,0.7,0.2)
             else row.caption:SetTextColor(1,1,1) end
-            row.detail:SetText(entry.manual and "Manual item - holder and timer unverified" or self.demo and (not entry.item and "Simulated loot - queue to open responses" or "Simulated loot - Manage tests delivery") or (self.selectedTracked==entry.id and "Selected" or ""))
+            row.detail:SetText(entry.nativeReceipt and ("Master Loot record • Quantity "..(entry.quantity or 1)) or entry.manual and "Manual item - holder and timer unverified" or self.demo and (not entry.item and "Simulated loot - queue to open responses" or "Simulated loot - Manage tests delivery") or (self.selectedTracked==entry.id and "Selected" or ""))
             local holder,status,color=self:LootHolderInfo(entry.holder)
             row.holder:SetText(self:FitTimerItemName(holder,row.holderMeasure,row.holder:GetWidth()))
             row.holder:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)
@@ -213,7 +213,7 @@ function A:RenderLootWindows()
             row.tradeSummary:SetText(pending>0 and (pending..(pending==1 and " item for " or " items for ")..self:DisplayName(item.winner)) or "")
             local selfHeld=awarded and item.winner==entry.holder and entry.delivery~="delivered"
             if selfHeld then row.tradeSummary:SetText("Confirm via Manage") end
-            if entry.delivery=="delivered" then row.tradeSummary:SetText(entry.deliveryMethod=="automatic" and "Delivered automatically" or entry.deliveryMethod=="bag_handover" and "Verified handover" or entry.deliveryMethod=="masterloot" and "Delivered by Master Loot" or "Confirmed manually")
+            if entry.delivery=="delivered" then row.tradeSummary:SetText(entry.deliveryMethod=="automatic" and "Delivered automatically" or entry.deliveryMethod=="bag_handover" and "Verified handover" or (entry.deliveryMethod=="masterloot" or entry.deliveryMethod=="masterloot_native") and "Delivered by Master Loot" or "Confirmed manually")
             elseif entry.delivery=="review" then row.tradeSummary:SetText("Delivery needs review") end
             if entry.manual and awarded and entry.delivery~="delivered" then row.tradeSummary:SetText("Confirm via Manage") end
             local queueable=self:CanQueueTrackedLoot(entry)

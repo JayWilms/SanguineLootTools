@@ -2,8 +2,8 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.53"
-A.protocol = 15
+A.version = "0.12.0-alpha.54"
+A.protocol = 16
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
 A.roster = {}
@@ -123,6 +123,7 @@ function A:Reduce(sender, p)
     end
     local s = self.state
     if not s or p.sid ~= s.id then return false, "No matching active session." end
+    if p.op=="corpseNativeReceipt" then return self:ReduceNativeReceipt(sender,p) end
     if p.op=="lootConfiguration" or p.op=="routeLoot" or p.op=="corpsePrepare" or p.op=="corpseReady" or p.op=="corpseStarted" or p.op=="corpseCleared" or p.op=="corpseFailed" or p.op=="corpseReceipt" then
         return self:ReduceLootConfiguration(sender,p)
     end
@@ -179,6 +180,7 @@ function A:Reduce(sender, p)
         s.master, s.council, s.selfVotes, s.rules = p.master, p.council, p.selfVotes, self.Copy(p.rules)
         s.warningSettings=self:CleanWarningSettings(p.warningSettings) or self:DefaultWarningSettings()
         if not self.demo then SanguineLootCouncilDB.warningSettings=self.Copy(s.warningSettings) end
+        if self.RememberNativePolicy then self:RememberNativePolicy() end
         s.lootConfiguration=lootConfiguration;s.autoCollect=lootConfiguration.collection;s.lootConfigRevision=(s.lootConfigRevision or 0)+1;self:CancelPreparedCorpseRoutes()
         if not self.demo then SanguineLootCouncilDB.lootConfiguration=self.Copy(lootConfiguration) end
         s.masterAutoSync = p.masterAutoSync ~= false

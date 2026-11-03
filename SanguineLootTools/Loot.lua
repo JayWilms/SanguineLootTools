@@ -138,10 +138,16 @@ function A:FindManualBagItem(link,guid)
 end
 
 function A:TrackedByGUID(guid)
+    if type(guid)~="string" then return end
     for _, entry in ipairs(self.state and self.state.trackedLoot or {}) do if entry.guid == guid then return entry end end
 end
 
 function A:TrackedForItem(item)
+    if item and item.nativeReceipt then
+        local entry=self:TrackedByID(item.nativeTrackedID)
+        if entry and entry.nativeReceipt and entry.nativeReceipt.token==item.nativeReceipt then return entry end
+        return
+    end
     return item and item.lootGUID and self:TrackedByGUID(item.lootGUID)
 end
 
@@ -418,6 +424,7 @@ function A:UpdateDeliveryAward(item, correction)
 end
 
 function A:TradeRemaining(entry)
+    if entry.nativeReceipt and entry.delivery=="delivered" then return nil,"Delivered by Master Loot" end
     if entry.manual then return nil,"Unknown — manual item" end
     if entry.verifiedHolder == false or not entry.observedAt then return nil, "Awaiting holder reading" end
     local age = A.Client:ServerTime() - entry.observedAt
@@ -519,7 +526,8 @@ function A:ScanLoot()
                         local quality = plain(info.quality) and info.quality
                         local single = plain(info.stackCount) and (info.stackCount == nil or info.stackCount == 1)
                         if not single then kind, seconds = "unknown", nil end
-                        if not (self.state.retiredGUIDs and self.state.retiredGUIDs[guid]) and not self:CorpseReservation(guid,link) and (known or (single and self:ShouldCollectLoot(quality) and (kind == "timed" or pending))) then
+                        local nativeAssigned=not known and self.IsNativeAutomaticRecipient and self:IsNativeAutomaticRecipient(quality)
+                        if not nativeAssigned and not (self.state.retiredGUIDs and self.state.retiredGUIDs[guid]) and not self:CorpseReservation(guid,link) and (known or (single and self:ShouldCollectLoot(quality) and (kind == "timed" or pending))) then
                             if not known and kind~="timed" and pending and not evidence.claims[guid] then
                                 evidence.claims[guid]=true;evidence.remaining=evidence.remaining-1
                             end
@@ -532,7 +540,7 @@ function A:ScanLoot()
     end
     if complete then
         for _, entry in ipairs(self.state.trackedLoot or {}) do
-            if not entry.manual and entry.holder == self.me and not seen[entry.guid] then report[#report + 1] = {guid = entry.guid, link = entry.link, kind = "missing"} end
+            if entry.guid and not entry.manual and entry.holder == self.me and not seen[entry.guid] then report[#report + 1] = {guid = entry.guid, link = entry.link, kind = "missing"} end
         end
     end
     self.lootScanStatus = complete and "Holder bag scan active" or "Some bag data unavailable"

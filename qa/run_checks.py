@@ -5,6 +5,7 @@ import sys
 root = Path(__file__).resolve().parent.parent
 (root / 'work').mkdir(exist_ok=True)
 checks = [
+    'check_native_distribution.py',
     'check_corpse_transport.py',
     'check_corpse_routes.py',
     'check_timer_scroll.py',

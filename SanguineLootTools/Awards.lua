@@ -66,6 +66,7 @@ function A:UpsertAward(item)
     local record = self:AwardSnapshot(item)
     record.delivery, record.deliveryRevision = self.Copy(item.delivery), item.delivery and item.delivery.revision or 0
     record.key, record.item, record.revision = key, item.link, revision
+    record.quantity=item.quantity
     record.original = self.Copy(item.originalAward or record)
     record.corrections = self.Copy(item.corrections or {})
     if index then history[index] = record else history[#history + 1] = record end

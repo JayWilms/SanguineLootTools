@@ -58,18 +58,21 @@ function A:PolicyTarget(policy)
 end
 function A:MakeAutomaticAward(entry,policy,by,delivered)
     local s=self.state;local target=self:PolicyTarget(policy)
+    local awardTime=policy.nativeAt or self.Client:ServerTime()
     if not target or not self.roster[target] or entry.item or #s.items>=40 then return false,"Recipient unavailable or active item list full." end
     if not self:TrackedByGUID(entry.guid) then s.trackedLoot[#s.trackedLoot+1]=entry end
     local item={id=self:NextIdentity("item"),link=entry.link,lootGUID=entry.guid,status="awarded",winner=target,
         responses={},ballots={},voting="closed",round=1,ballotVersion=0,responseRound=0,
-        automaticAssignment=true,awardReason=policy.reason,awardNote=policy.note,awardedAt=self.Client:ServerTime(),awardedBy=by,
-        awardedVotes=0,awardRevision=1,responseOptions=self.Copy(self:ResponseOptions()),corrections={}}
+        automaticAssignment=true,awardReason=policy.reason,awardNote=policy.note,awardedAt=awardTime,awardedBy=by,
+        awardedVotes=0,awardRevision=1,responseOptions=self.Copy(self:ResponseOptions()),corrections={},
+        nativeReceipt=entry.nativeReceipt and entry.nativeReceipt.token or nil,
+        nativeTrackedID=entry.nativeReceipt and entry.id or nil,quantity=entry.quantity}
     entry.item=item.id;s.items[#s.items+1]=item
     item.originalAward=self:AwardSnapshot(item);self:UpdateDeliveryAward(item,false)
     if delivered then
-        entry.delivery="delivered";entry.deliveredTo=target;entry.deliveredAt=self.Client:ServerTime();entry.deliveredBy=by;entry.deliveryMethod="masterloot"
+        entry.delivery="delivered";entry.deliveredTo=target;entry.deliveredAt=awardTime;entry.deliveredBy=by;entry.deliveryMethod="masterloot"
         entry.deliveryRevision=entry.deliveryRevision+1
-        entry.deliveryLog[#entry.deliveryLog+1]={action="delivered",method="masterloot",by=by,to=target,time=self.Client:ServerTime()}
+        entry.deliveryLog[#entry.deliveryLog+1]={action="delivered",method=entry.nativeReceipt and "masterloot_native" or "masterloot",by=by,to=target,time=awardTime}
         self:CopyDeliveryToItem(entry)
     end
     return true
@@ -106,6 +109,7 @@ function A:ReduceLootConfiguration(sender,p)
     if p.op=="lootConfiguration" then
         if sender~=self.leader or p.expectedRevision~=(s.lootConfigRevision or 0) then return false,"Only the Raid Leader can change the current Loot Configuration. Reopen the setting and try again." end
         local c=self:CleanLootConfiguration(p.settings);if not c then return false,"Invalid Loot Configuration." end
+        if self.RememberNativePolicy then self:RememberNativePolicy() end
         s.lootConfiguration=c;s.autoCollect=c.collection;s.lootConfigRevision=(s.lootConfigRevision or 0)+1
         -- Cancel prepared actions when rules change. Already awarded deliveries retain their recipient.
         self:CancelPreparedCorpseRoutes()
@@ -214,7 +218,7 @@ function A:CorpseReservation(guid,link)
     end
     return false
 end
-function A:NativeCorpseItem(slot)
+function A:NativeCorpseItem(slot,includeUnavailable)
     if not self.corpseOpen or type(GetLootSlotInfo)~="function" or type(GetLootSlotLink)~="function" or type(GetLootSourceInfo)~="function" then return end
     local link=call(GetLootSlotLink,slot)
     local _,_,quantity,fourth,fifth,sixth,seventh=call(GetLootSlotInfo,slot)
@@ -224,8 +228,9 @@ function A:NativeCorpseItem(slot)
     local source,count,extra=first,second,third
     if first==1 and type(second)=="string" then source,count,extra=second,third,fourthSource end
     if extra~=nil then return end
-    if not self:EquipmentLink(link) or quantity~=1 or locked or quest or not int(quality,0,5) or type(source)~="string" or count~=1 then return end
-    return {slot=slot,link=link,quality=quality,source=source}
+    if not self:EquipmentLink(link) or not int(quantity,1,10000) or not int(quality,0,5) or type(source)~="string" or count~=quantity then return end
+    if not includeUnavailable and (locked or quest) then return end
+    return {slot=slot,link=link,quality=quality,source=source,quantity=quantity,locked=locked,quest=quest}
 end
 function A:SendCorpseAction(op,data,key)
     local sid=self.state and self.state.id
@@ -238,6 +243,7 @@ function A:SendCorpseAction(op,data,key)
     self:Act(op,data)
 end
 function A:TickLootConfiguration()
+    if self.TickNativeLoot then return self:TickNativeLoot() end
     local s=self.state;if not s or self.demo or not self.Client:InRaid() then return end
     if self.corpseSID~=s.id then self.corpseSID=s.id;self.corpseSnapshots={};self.corpseAttempts={};self.routeAttempts={} end
     for token in pairs(self.corpseSnapshots) do
@@ -350,6 +356,7 @@ function A:TickLootConfiguration()
     end
 end
 function A:LootConfigurationEvent(event,...)
+    if self.NativeLootEvent then return self:NativeLootEvent(event,...) end
     if event=="LOOT_OPENED" or event=="LOOT_READY" or event=="LOOT_SLOT_CLEARED" or event=="LOOT_CLOSED"
         or (event=="BAG_UPDATE_DELAYED" and self.state and next(self.state.corpseRoutes or {})) then self.corpseScanSoon=true end
     if event=="LOOT_OPENED" or event=="LOOT_READY" then self.corpseOpen=true
