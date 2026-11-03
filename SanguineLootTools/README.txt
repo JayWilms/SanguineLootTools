@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.54 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.55 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,19 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together must use alpha.54, protocol 16. Commands use /slt.
+Everyone testing together should use alpha.55, protocol 16. Commands use /slt.
 Start a new normal raid session; do not resume an old protocol-15 session.
+
+NEW SINCE ALPHA.54
+- Early and urgent trade warnings use Alarm Clock 2 (sound 12867), replacing
+  Raid Warning. The existing sound On/Off switch remains; no dropdown added.
+- Completed automatic Disenchant and Guild Bank assignments leave the active
+  Loot list and do not trigger Open Loot on discovery. History and archive
+  records remain intact. Pending trades, delivery review, Other assignments
+  and ordinary council awards remain visible.
+- Native distribution and council collection from alpha.54 are retained.
+  A live tester reported instant distribution; remaining raid checks continue.
+- All seventeen local test suites pass. Protocol 16 retained.
 
 NEW SINCE ALPHA.53
 - Eligible automatic assignments use local native Master Loot confirmation.

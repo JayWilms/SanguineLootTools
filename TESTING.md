@@ -1,5 +1,19 @@
 # Raid testing checklist
 
+## Alpha.55: warning sound and completed utility assignments
+
+- [ ] Enable Warning sound under Alerts. Confirm early and urgent trade
+  warnings play Alarm Clock 2, matching `/run PlaySound(12867, "Master")`.
+  Turning Warning sound off must silence it; no dropdown is expected.
+- [ ] Complete automatic Disenchant and Guild Bank deliveries for green and
+  blue items. They should leave the active Loot list and remain in Loot History.
+  Completed automatic deliveries must not open Loot on discovery or be rerolled.
+- [ ] Confirm pending trades, review/mismatched deliveries, Other assignments
+  and ordinary council awards remain visible. Test Open Loot on discovery with
+  a newly collected council item after utility assignments have completed.
+- [ ] Archive completed deliveries in History and confirm their award records
+  remain available. Repeat native distribution to check alpha.54 behaviour.
+
 ## Alpha.54: native distribution (protocol 16)
 
 This change is included in the alpha.54 installer. Alpha.53 deliberately
@@ -38,6 +52,13 @@ and elapsed physical-transfer time. Native distribution counters distinguish
 confirmed transfers, unconfirmed attempts and background records still pending.
 
 ### Automatic Collect for council
+
+Included in alpha.55: completed automatic Disenchant and Guild Bank
+assignments are hidden from active Loot rows and do not trigger Open Loot on
+discovery. Their records remain in history and available for normal archiving.
+Verify pending trades, delivery review, Other assignments and normal council
+awards remain visible. Test both green materials and blue equipment; filtering
+depends on completed assignment reason, not item quality.
 
 - [ ] Set Epic to Collect for council, Automatic collection on, and the council
   collection threshold to Epic or lower. Automatic assignment can stay off.

@@ -32,6 +32,30 @@ assert(A:TradeRemaining(entry)==nil)
 ''')
 print('Three green slots (including quantity 3) and two blues distribute without a recipient addon or network pumping; no invented GUIDs or rerolls.')
 
+# Completed utility assignments leave the active Loot list, regardless of
+# quality. Their canonical history/queue protections remain intact, while a
+# pending trade or mismatched delivery must remain visible for action.
+lua.execute((source/'LootUI.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
+lua.execute('''
+for _,entry in ipairs(A.state.trackedLoot) do
+    local item=A:ItemByID(entry.item)
+    assert(A:IsCompletedUtilityAssignment(entry))
+    item.awardReason='Disenchant';assert(A:IsCompletedUtilityAssignment(entry))
+    item.awardReason='Other';assert(not A:IsCompletedUtilityAssignment(entry))
+    item.awardReason='Guild Bank'
+    entry.delivery='pending';assert(not A:IsCompletedUtilityAssignment(entry))
+    entry.delivery='review';assert(not A:IsCompletedUtilityAssignment(entry))
+    entry.delivery='delivered'
+    local target=entry.deliveredTo;entry.deliveredTo='Wrong-Realm'
+    assert(not A:IsCompletedUtilityAssignment(entry));entry.deliveredTo=target
+    item.automaticAssignment=false;assert(not A:IsCompletedUtilityAssignment(entry))
+    item.automaticAssignment=true
+    assert(not A:CanQueueTrackedLoot(entry))
+end
+assert(#A.state.items==5 and #A.state.trackedLoot==5 and #A:ArchivableItems()==5)
+''')
+print('Completed Disenchant/Guild Bank assignments are hidden from active Loot; pending/review, Other and council awards remain visible, with records retained.')
+
 # Quantity proof follows native clear. Duplicate/unrelated clears and stale
 # visual loot rows cannot turn a failed give into a delivered record.
 lua=master()

@@ -1,4 +1,11 @@
 local _, A = ...
+function A:IsCompletedUtilityAssignment(entry)
+    local item=entry and entry.item and self:ItemByID(entry.item)
+    return item and item.automaticAssignment and item.status=="awarded"
+        and (item.awardReason=="Disenchant" or item.awardReason=="Guild Bank")
+        and entry.delivery=="delivered" and item.winner~=nil and entry.deliveredTo==item.winner
+end
+
 function A:LootHolderInfo(holder)
     if type(holder)~="string" or holder=="" then return "Unknown", "Holder not confirmed" end
     local unit=self.roster[holder]
@@ -143,6 +150,7 @@ function A:RenderLootWindows()
     self:RenderLootTimers()
     local panel=self.ui.lootPanels.timer
     local selected=self:TrackedByID(self.selectedTracked or 0)
+    if self:IsCompletedUtilityAssignment(selected) then self.selectedTracked=nil;selected=nil end
     self.ui.manageLoot:SetShown(self:IsMaster())
     self.ui.manageLoot:SetEnabled(self:IsMaster() and selected~=nil)
     if not self:IsMaster() or not selected then panel.manage:Hide() end
@@ -152,14 +160,18 @@ function A:RenderLootWindows()
     local s=self.state
     if panel.discoverySID~=s.id then panel.discoverySID=s.id;panel.discoveryID=0 end
     local newest=panel.discoveryID or 0
-    for _,entry in ipairs(s.trackedLoot or {}) do newest=math.max(newest,entry.id) end
+    for _,entry in ipairs(s.trackedLoot or {}) do
+        if not self:IsCompletedUtilityAssignment(entry) then newest=math.max(newest,entry.id) end
+    end
     if newest>(panel.discoveryID or 0) and self:LootConfiguration().openWindow
         and (not self.ui.itemTools or not self.ui.itemTools:IsShown()) then panel.window:Show() end
     panel.discoveryID=newest
     local rows={}
+    local completedAssignments=0
     for _, entry in ipairs(s.trackedLoot or {}) do
         if self:IsLeader() or self:IsMaster() or entry.holder==self.me then
-            rows[#rows+1]=entry
+            if self:IsCompletedUtilityAssignment(entry) then completedAssignments=completedAssignments+1
+            else rows[#rows+1]=entry end
         end
     end
     table.sort(rows,function(a,b)
@@ -176,8 +188,9 @@ function A:RenderLootWindows()
     end
     panel.empty:SetShown(#rows==0)
     panel.empty:SetText(s.autoCollect==false and "No loot collected yet.\nAutomatic collection is off in Settings > Council." or "No loot collected yet.\nEligible items will appear here when holders report them.")
+    if #rows==0 and completedAssignments>0 then panel.empty:SetText("No active loot to show.\nCompleted Disenchant and Guild Bank assignments are retained in Loot History.") end
     local capacity=(#s.items>=35 or #(s.trackedLoot or {})>=70) and (" | Active capacity: "..#s.items.."/40 items, "..#(s.trackedLoot or {}).."/80 copies (archive confirmed deliveries)") or ""
-    panel.summary:SetText((self.demo and (self:TestLabel().." | ") or "")..(#rows==0 and "No loot collected yet" or (pending==0 and "No awards awaiting trade | "..#rows.." tracked items" or pending..(pending==1 and " award awaiting trade" or " awards awaiting trade").." | "..#rows.." tracked items"))..capacity.." | "..(s.archivedCount or 0).." archived")
+    panel.summary:SetText((self.demo and (self:TestLabel().." | ") or "")..(#rows==0 and (completedAssignments>0 and "No active loot" or "No loot collected yet") or (pending==0 and "No awards awaiting trade | "..#rows.." tracked items" or pending..(pending==1 and " award awaiting trade" or " awards awaiting trade").." | "..#rows.." tracked items"))..(completedAssignments>0 and (" | "..completedAssignments.." completed assignments in history") or "")..capacity.." | "..(s.archivedCount or 0).." archived")
     if self.demo then panel.empty:SetText("No simulated loot.\nRun /slt test to prepare a fresh SoD loot set.") end
     for i,row in ipairs(panel.rows) do
         local entry=i<=(panel.visibleRows or 6) and rows[panel.page*(panel.visibleRows or 6)+i] or nil; row:SetShown(entry~=nil); row.tracked=entry and entry.id

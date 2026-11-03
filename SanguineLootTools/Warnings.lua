@@ -253,7 +253,7 @@ function A:TickTradeWarnings()
     table.sort(retained,function(a,b) if activeKeys[a.key]~=activeKeys[b.key] then return not activeKeys[a.key] end;return a.at<b.at end)
     for i=1,math.max(0,#retained-512) do seen[retained[i].key]=nil end
     self:RenderTradeAlerts(fresh)
-    if fresh and cfg.sound and type(PlaySound)=="function" then pcall(PlaySound,SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959,"Master") end
+    if fresh and cfg.sound and type(PlaySound)=="function" then pcall(PlaySound,SOUNDKIT and SOUNDKIT.ALARM_CLOCK_WARNING_2 or 12867,"Master") end
 end
 function A:TickWarnings()
     if self:IsLeader() and self.addonSummaryDirty and A.Client:Uptime()-(self.lastAddonSummary or -10)>=1 then self:SendAddonSummary() end
