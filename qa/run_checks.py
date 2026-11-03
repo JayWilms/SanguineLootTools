@@ -5,6 +5,8 @@ import sys
 root = Path(__file__).resolve().parent.parent
 (root / 'work').mkdir(exist_ok=True)
 checks = [
+    'check_raid_setup.py',
+    'check_window_drag.py',
     'check_window_layers.py',
     'check_class_autopass.py',
     'check_voting_trade.py',

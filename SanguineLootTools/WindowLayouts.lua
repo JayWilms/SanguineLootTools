@@ -143,7 +143,7 @@ function A:ToggleWindowLock(frame)
     local store=self:WindowLayoutStore()
     if type(store.windowLocks)~="table" then store.windowLocks={} end
     store.windowLocks[frame.sltWindowName]=not self:WindowLocked(frame)
-    frame:StopMovingOrSizing()
+    self:FinishWindowMove(frame)
     self:RefreshWindowChrome(frame)
 end
 function A:RefreshWindowChrome(frame)
@@ -198,7 +198,7 @@ function A:ToggleWindowCollapse(frame)
     else
         frame.sltBackdrop=frame:GetBackdrop()
         frame.sltCollapsed=true
-        frame:StopMovingOrSizing()
+        self:FinishWindowMove(frame)
     end
     self:RefreshWindowChrome(frame)
 end
@@ -301,37 +301,52 @@ function A:WindowTopLeft(frame)
     if not a or not b or not finite(x) or not finite(y) then return 16,60 end
     return b[1]*UIParent:GetWidth()+x-a[1]*frame:GetWidth(),(1-b[2])*UIParent:GetHeight()-y-(1-a[2])*frame:GetHeight()
 end
--- StartMoving may change anchors to screen-relative coordinates. Capture the
--- rendered bounds before stopping, then store a canonical UIParent anchor.
+-- Keep one UIParent-relative anchor throughout a drag. Native StartMoving can
+-- switch to screen-relative anchors, whose offsets differ at non-default scales.
 function A:BeginWindowMove(frame)
     self:FocusWindow(frame)
     if self:WindowLocked(frame) or frame.sltResizing==true then return false end
-    frame.sltDragLeft,frame.sltDragTop=self:WindowTopLeft(frame)
+    if frame.sltMoving then return false end
+    local x,y=GetCursorPosition()
+    local scale=UIParent:GetEffectiveScale()
+    if not finite(x) or not finite(y) or not finite(scale) or scale<=0 then return false end
+    local left,top=self:WindowTopLeft(frame)
+    frame.sltDrag={x=x,y=y,left=left,top=top,scale=scale}
     frame.sltMoving=true
-    frame:StartMoving()
+    if not frame.sltDragHooked then
+        frame.sltDragHooked=true
+        frame:HookScript("OnUpdate",function(f)
+            if not f.sltMoving then return end
+            if A:WindowLocked(f) or not IsMouseButtonDown("LeftButton")
+                or UIParent:GetEffectiveScale()~=f.sltDrag.scale then
+                A:FinishWindowMove(f)
+            else A:UpdateWindowMove(f) end
+        end)
+        frame:HookScript("OnHide",function(f) A:FinishWindowMove(f) end)
+    end
     return true
 end
+function A:UpdateWindowMove(frame)
+    local drag=frame.sltDrag
+    if not frame.sltMoving or not drag then return end
+    local x,y=GetCursorPosition()
+    local scale=UIParent:GetEffectiveScale()
+    -- A display/scale change invalidates the old mouse coordinate space.
+    if scale~=drag.scale or not finite(x) or not finite(y) then return end
+    local sw,sh,w,h=UIParent:GetWidth(),UIParent:GetHeight(),frame:GetWidth(),frame:GetHeight()
+    local left=math.max(0,math.min(sw-w,drag.left+(x-drag.x)/scale))
+    local top=math.max(0,math.min(sh-h,drag.top+(drag.y-y)/scale))
+    frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOPLEFT",left,-top)
+end
 function A:FinishWindowMove(frame,name)
-    local moving=frame.sltMoving==true
-    local x,y
-    if moving then
-        local left,top=frame:GetLeft(),frame:GetTop()
-        local parentScale,scale=UIParent:GetEffectiveScale(),frame:GetEffectiveScale()
-        local parentLeft,parentTop=UIParent:GetLeft(),UIParent:GetTop()
-        if finite(left) and finite(top) and finite(parentScale) and parentScale>0 and finite(scale) and scale>0
-            and finite(parentLeft) and finite(parentTop) then
-            x=left*scale/parentScale-parentLeft
-            y=parentTop-top*scale/parentScale
-        else x,y=frame.sltDragLeft,frame.sltDragTop end
-    end
-    frame:StopMovingOrSizing();frame.sltMoving=false
-    if finite(x) and finite(y) then
-        frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOPLEFT",x,-y)
-    end
+    if not frame.sltMoving then return end
+    self:UpdateWindowMove(frame)
+    frame.sltMoving=false;frame.sltDrag=nil
     self:ClampWindowPosition(frame)
     self:SaveWindowLayout(frame,name or frame.sltWindowName)
 end
 function A:ClampWindowPosition(frame)
+    if frame.sltMoving then return end
     local x,y=self:WindowTopLeft(frame)
     local sw,sh,w,h=UIParent:GetWidth(),UIParent:GetHeight(),frame:GetWidth(),frame:GetHeight()
     x=math.max(0,math.min(sw-w,x));y=math.max(0,math.min(sh-h,y))
@@ -530,6 +545,7 @@ function A:LayoutReadableWindow(frame)
 end
 
 function A:SaveWindowLayout(frame,name)
+    if frame.sltMoving then return end
     local point,_,relativePoint,x,y=frame:GetPoint(1)
     local scale=frame:GetScale()
     if not anchors[point] or not anchors[relativePoint] or not finite(x) or not finite(y) or not finite(scale) then return end
@@ -593,6 +609,7 @@ function A:RestoreWindowLayouts()
     local store=self:WindowLayoutStore()
     for _,entry in ipairs(self.windowFrames or {}) do
         local f,name=entry.frame,entry.name
+        self:FinishWindowMove(f,name)
         local saved,p=store[name],self:WindowPolicy(f)
         f:SetScale(1)
         if p then
@@ -626,6 +643,7 @@ function A:RestoreWindowLayouts()
         events:SetScript("OnEvent",function()
             for _,entry in ipairs(A.windowFrames or {}) do
                 local f=entry.frame
+                A:FinishWindowMove(f,entry.name)
                 if A:IsReadableWindow(f) then A:ResizeReadableWindow(f,f:GetWidth(),f:GetHeight()) end
                 A:ClampWindowPosition(f);A:SaveWindowLayout(f,entry.name)
             end

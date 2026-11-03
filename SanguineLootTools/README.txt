@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.41 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.43 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,17 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.41, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.43, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.41
+- Dragging follows mouse travel in UIParent coordinates without native anchor
+  switching. The same anchor is retained while dragging and saved on release.
+- Interrupted drags finish on hide, lock, layout reset or display/scale changes.
+- Quality-rule labels use the matching in-game quality colours.
+- Solo setup edits, profiles, reload persistence and leader-started session
+  transfer have regression coverage; the existing setup behavior is retained.
+- Eleven local suites passed. The reported jumps still need confirmation by the
+  affected users in WoW: Forever; this is a candidate fix. Protocol 15 retained.
 
 NEW SINCE ALPHA.40
 - Opaque panels and separate drawing-level bands keep each window's content

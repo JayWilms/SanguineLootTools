@@ -1,5 +1,7 @@
 local _,A=...
 local qualities={"Grey • Poor","White • Common","Green • Uncommon","Blue • Rare","Purple • Epic","Orange • Legendary"}
+local qualityColours={"ff9d9d9d","ffffffff","ff1eff00","ff0070dd","ffa335ee","ffff8000"}
+for i,label in ipairs(qualities) do qualities[i]="|c"..qualityColours[i]..label.."|r" end
 local actions={ignore="Ignore",council="Collect for council",assign="Assign automatically"}
 local reasonLabels={Disenchant="Disenchanted",["Guild Bank"]="Guild Bank",Other="Other"}
 function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,section,row,switch)

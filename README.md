@@ -1,10 +1,10 @@
 # Sanguine Loot Tools
 
-Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.41**, protocol **15** (private testing build). Includes grouped window layering, opaque panels, parent-blocking dialogs, class Auto Pass in Voting, a Change winner reason counter and flush screen-edge positioning. Voting trade actions, verified holder handovers, queue protection and compact loot releases are retained. Solo and group loot tests start response rounds at 120 seconds. Everyone testing together should use alpha.41.
+Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.43**, protocol **15** (private testing build). Uses cursor-delta dragging with stable anchors to address reported window jumps; in-game confirmation is pending. Quality-rule labels use the in-game item-quality colours. Solo raid setup persistence and transfer into leader-started sessions have regression coverage. Includes grouped window layering, opaque panels, parent-blocking dialogs, class Auto Pass in Voting, a Change winner reason counter and flush screen-edge positioning. Voting trade actions, verified holder handovers, queue protection and compact loot releases are retained. Solo and group loot tests start response rounds at 120 seconds. Everyone testing together should use alpha.43.
 
 ## Installation
 
-Download the [alpha.41 installer](dist/SanguineLootTools-0.12.0-alpha.41-install.zip). See the [raid testing checklist](TESTING.md) for the current acceptance checks. The previous alpha.40 installer remains in `dist`.
+Download the [alpha.43 installer](dist/SanguineLootTools-0.12.0-alpha.43-install.zip). See the [raid testing checklist](TESTING.md) for the current acceptance checks. The previous alpha.40 and alpha.41 installers remain in `dist`.
 
 Copy the `SanguineLootTools` folder into your game's `Interface/AddOns` folder. Install ItemDB and its required dependencies separately. Enable the addon and **Load out of date AddOns** at character selection. Use `/slt` in game to open the launcher.
 

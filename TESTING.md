@@ -1,6 +1,6 @@
-# Alpha.41 raid testing checklist
+# Alpha.43 raid testing checklist
 
-Everyone testing together should use **0.12.0-alpha.41**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.43**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.
@@ -52,3 +52,25 @@ python tools/build_install.py
 ```
 
 This writes and verifies the current installer in `outputs`. It does not publish or upload anything. Build only when explicitly requested.
+
+## Alpha.43 window dragging acceptance (native test pending)
+
+- [ ] Each of the three affected users repeats the original failure with build 42.
+- [ ] Record affected window, resolution, window mode, UI scale, and other UI addons.
+- [ ] Move Launcher, Settings, Responses, Voting, Loot, Timer and History slowly and quickly in every direction. The pointer should keep the same grab offset.
+- [ ] Release over another window, over the game world, and at each screen edge/corner. No jump on release; repeat at least twenty times.
+- [ ] Repeat at the user's usual UI scale and a different scale, with windows overlapping and while responses/votes refresh.
+- [ ] Collapse/expand and lock/unlock windows, then repeat. Close a window during a drag and reopen it; it must not follow the cursor afterward.
+- [ ] Change UI scale or resolution during a drag. The drag should stop safely. Start a fresh drag afterward.
+- [ ] Reload the UI and confirm each window stays at its released position.
+- [ ] Confirm resize grips, focus/layering and dialogs still work. Test movable dialogs as well as main windows.
+
+Pass criteria: no jumps during dragging or on release, no off-screen windows, and saved positions survive reload. If a jump remains, capture a short video and diagnostics; do not mark the issue resolved from simulated tests alone.
+
+## Quality colours and solo preparation
+
+- [ ] In Loot Configuration, confirm Poor is grey, Common white, Uncommon green, Rare blue, Epic purple, and Legendary orange. Assignment-reason headings retain the matching colour.
+- [ ] Outside test mode, while solo, set the response timer and choices, council, voting rules, loot thresholds/assignment rules, and alerts. Save a raid profile.
+- [ ] Reload the UI and verify all prepared values and the profile remain available.
+- [ ] Join a raid as leader. Verify no session starts merely from joining. Start a session and check the prepared values.
+- [ ] Confirm absent council members are skipped and missing assignment recipients pause automation. Live non-leaders must not be able to change shared raid settings.
