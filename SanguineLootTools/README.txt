@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.52 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.53 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,17 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.52, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.53, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.52
+- Existing stacks and known stackable materials are reported as requiring
+  manual distribution. They no longer block eligible single-copy drops.
+- Only the assigned recipient can report a pre-transfer stack blocker;
+  a ready/started transfer cannot be cancelled by that report.
+- Reuse prepared routes for different items when corpse slots compact,
+  preserving a single receipt baseline per item.
+- All sixteen local suites pass, including three green material slots ahead
+  of two blues. Native interaction still needs confirmation. Protocol 15.
 
 NEW SINCE ALPHA.51
 - Loot, bag and state changes coalesce into assignment checks on the existing

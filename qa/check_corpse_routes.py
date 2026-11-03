@@ -51,7 +51,7 @@ function GiveMasterLoot(slot,candidate)
     for _,route in pairs(A.state.corpseRoutes) do
         if route.started and not route.finished and not route.failed then intent=route end
     end
-    assert(intent and intent.slot==slot)
+    assert(intent and intent.link==slots[slot].link)
     A:LootConfigurationEvent('LOOT_SLOT_CLEARED',slot)
     if mode=='compact' then
         table.remove(slots,slot)
@@ -106,6 +106,19 @@ for _,intent in pairs(A.state.corpseRoutes) do if intent.slot==1 then intent.fai
 slots[1]=nil
 for i=1,8 do tick() end
 assert(gives==1 and #A.state.items==1)
+-- A recipient can report a pre-transfer stack blocker, but cannot cancel a
+-- transfer that is ready/started or cancel another recipient's assignment.
+setup('stack-block');tick()
+local blocked
+for _,route in pairs(A.state.corpseRoutes) do if route.slot==1 then blocked=route end end
+blocked.ready=nil
+assert(not A:ReduceLootConfiguration('Other-Realm',{op='corpseFailed',token=blocked.token,reason='stacked'}))
+assert(not blocked.failed)
+assert(A:ReduceLootConfiguration('Bank-Realm',{op='corpseFailed',token=blocked.token,reason='stacked'}))
+assert(blocked.failed and blocked.failure=='stacked')
+blocked.failed,blocked.failure=nil,nil;blocked.ready=true;blocked.started=true
+assert(not A:ReduceLootConfiguration('Bank-Realm',{op='corpseFailed',token=blocked.token,reason='stacked'}))
+assert(not blocked.failed)
 ''')
 print('Multiple boss drops: stable/retained/compacted slots, distinct copies, receipt gate and failed assignments passed.')
 
@@ -150,6 +163,12 @@ bags[3]={guid='Item-Another-Bands',link=bagLink}
 A.corpseSnapshots.route={['Item-Old-Bands']=true}
 A:TickLootConfiguration()
 assert(not route.guid and not route.finished and #A.state.items==0)
+-- A known stackable must be rejected even when current stacks contain only
+-- one unit; a later delivery could merge into that existing GUID.
+C_Item.GetItemInfo=function(link) return 'Material',link,2,1,1,'Material','Material',20 end
+local snapshot,reason=A:CorpseBagSnapshot(sourceLink)
+assert(snapshot==nil and reason=='stacked')
+C_Item.GetItemInfo=nil
 A.me='Master-Realm'
 ''')
 print('Actual cross-character hyperlinks: old-copy baseline, reserved fresh GUID, verified receipt and ambiguous copies passed.')

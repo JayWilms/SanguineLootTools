@@ -1,4 +1,26 @@
-# Alpha.52 raid testing checklist
+# Alpha.53 raid testing checklist
+
+## Alpha.53 stacked materials no longer block equipment
+
+Known stackable items or existing stacks cannot satisfy per-copy GUID receipt
+proof. Before a transfer starts, the assigned recipient can report that blocker;
+the leader records it and continues eligible single-copy drops. Other senders
+cannot cancel the route this way, and ready/started transfers cannot be cancelled
+by a late stack report. Similar materials on that corpse are left for manual
+distribution with an explicit routing status and diagnostic count.
+
+An unready/ineligible unsent item no longer blocks a different ready item.
+Prepared routes for a different item moving into a vacated slot are reused so
+the same copy does not gain competing receipt baselines. All 16 suites pass,
+including three stacked green slots ahead of two blue drops and compacted slots.
+
+- [ ] Reproduce three green Salvage drops with an existing stack in the recipient's
+  bags and two blue drops configured for automatic assignment. Blues should
+  progress without waiting for the materials to expire. Salvage stays manual.
+- [ ] Repeat with one unit in the existing stack and with an empty material slot.
+  Known stackable materials should still be reported as manual distribution.
+- [ ] Verify each blue receives exactly one delivered record and that ordinary
+  equipment copies and identical single-copy drops still use receipt proof.
 
 ## Alpha.52 first-item startup delay
 
@@ -139,7 +161,7 @@ headings and vote summaries above the background when the window reopens.
 Classic bag-tooltip fallback for raid trade timers and Timer staying open on
 Escape are included in alpha.46. All 13 local suites pass; native checks remain.
 
-- [ ] With alpha.52 on the holder and raid clients, verify a soulbound
+- [ ] With alpha.53 on the holder and raid clients, verify a soulbound
   raid drop with a visible trade timer shows a countdown in both Loot and Timer.
   Existing tracked copies should refresh from the holder's bag scan without
   another pickup or manual addition. Allow 20 seconds outside combat for a scan.
@@ -177,7 +199,7 @@ the regression check reproduces the blocked option clicks before this fix.
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.52**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.53**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.

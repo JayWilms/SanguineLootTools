@@ -84,6 +84,23 @@ local function corpseToken(source,slot,link)
     -- Do not mistake it for the completed assignment from that position.
     return source..":"..slot..":"..(link:match("item:(%d+)") or "")
 end
+function A:PreparedCorpseRoute(item)
+    local token=corpseToken(item.source,item.slot,item.link)
+    local routes=self.state.corpseRoutes or {}
+    if routes[token] then return token,routes[token] end
+    -- Loot slots may compact after a delivery. Reuse the one prepared baseline
+    -- for this source/item ID instead of creating two competing receipts.
+    local id=item.link:match("item:(%d+)")
+    for key,route in pairs(routes) do
+        if route.source==item.source and route.link:match("item:(%d+)")==id
+            and not route.finished and not route.failed and not route.cleared and not route.guid
+            and not (self.corpseAttempts and self.corpseAttempts[key])
+            and (not route.started or (self.corpseActions and self.corpseActions["corpseStarted:"..key]))
+            and route.revision==(self.state.lootConfigRevision or 0)
+            and self.Client:ServerTime()-route.time<=60 then return key,route end
+    end
+    return token
+end
 function A:ReduceLootConfiguration(sender,p)
     local s=self.state
     if p.op=="lootConfiguration" then
@@ -141,7 +158,9 @@ function A:ReduceLootConfiguration(sender,p)
         if intent.cleared then return true,nil,true end
         intent.cleared=true
     elseif p.op=="corpseFailed" then
-        if sender~=intent.by then return false,"Only the Master Looter can report this attempt." end
+        local stacked=sender==intent.target and p.reason=="stacked" and not intent.ready and not intent.started
+        if sender~=intent.by and not stacked then return false,"Only the Master Looter can report this attempt." end
+        if stacked then intent.failure="stacked" end
         intent.failed=true
     elseif p.op=="corpseReceipt" then
         if sender~=intent.target or not intent.ready or type(p.guid)~="string" or #p.guid>100 or not p.guid:match("^Item%-[%w%-]+$")
@@ -167,6 +186,9 @@ function A:CorpseBagSnapshot(link)
     local expected=self:EquipmentLink(link)
     local itemID=expected and expected:match("item:(%d+)")
     if not itemID then return end
+    local getter=C_Item and C_Item.GetItemInfo or GetItemInfo
+    local _,_,_,_,_,_,_,maxStack=call(getter,expected)
+    if int(maxStack,2,1000000) then return nil,"stacked" end
     local result={}
     for bag=0,math.min(NUM_BAG_SLOTS or 4,5) do
         local n=call(C_Container.GetContainerNumSlots,bag);if not int(n,0,100) then return end
@@ -174,7 +196,7 @@ function A:CorpseBagSnapshot(link)
             local info=call(C_Container.GetContainerItemInfo,bag,slot)
             local bagLink=type(info)=="table" and self:EquipmentLink(info.hyperlink)
             if bagLink and bagLink:match("item:(%d+)")==itemID then
-                if info.stackCount~=nil and info.stackCount~=1 then return end
+                if info.stackCount~=nil and info.stackCount~=1 then return nil,"stacked" end
                 local sample=self:ReadManualBagItem(bag,slot);if not sample then return end
                 result[sample.guid]=true
             end
@@ -239,8 +261,9 @@ function A:TickLootConfiguration()
             and (intent.started or intent.revision==(s.lootConfigRevision or 0)) then
             if intent.target==self.me then
                 if not self.corpseSnapshots[token] then
-                    local snapshot=self:CorpseBagSnapshot(intent.link)
+                    local snapshot,reason=self:CorpseBagSnapshot(intent.link)
                     if snapshot then self.corpseSnapshots[token]=snapshot;self:SendCorpseAction("corpseReady",{token=token}) end
+                    if reason=="stacked" then self:SendCorpseAction("corpseFailed",{token=token,reason="stacked"}) end
                 elseif not intent.ready then
                     self:SendCorpseAction("corpseReady",{token=token})
                 elseif intent.ready then
@@ -275,8 +298,11 @@ function A:TickLootConfiguration()
     -- Prepare distinct item IDs together so the next recipient snapshot can
     -- finish before the previous award's larger public update is transmitted.
     -- Copies of one ID need separate baselines, even when their links differ.
-    local reservedIDs,prepared={},false
+    local reservedIDs,stackedIDs,prepared={},{},false
     for _,intent in pairs(s.corpseRoutes or {}) do
+        if intent.failed and intent.failure=="stacked" and intent.revision==(s.lootConfigRevision or 0) then
+            stackedIDs[intent.source..":"..intent.link:match("item:(%d+)")]=true
+        end
         if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
             reservedIDs[intent.link:match("item:(%d+)")]=true
         end
@@ -286,7 +312,7 @@ function A:TickLootConfiguration()
         if item and item.quality>=threshold and self:AutomaticLootRule(item.quality) then
             local token=corpseToken(item.source,slot,item.link)
             local id=item.link:match("item:(%d+)")
-            if not (s.corpseRoutes and s.corpseRoutes[token]) and not reservedIDs[id] then
+            if not (s.corpseRoutes and s.corpseRoutes[token]) and not reservedIDs[id] and not stackedIDs[item.source..":"..id] then
                 self:SendCorpseAction("corpsePrepare",item,token)
                 reservedIDs[id],prepared=true,true
             end
@@ -297,10 +323,11 @@ function A:TickLootConfiguration()
         local item=self:NativeCorpseItem(slot)
         if item and item.quality<threshold and self:AutomaticLootRule(item.quality) then self.lootRoutingStatus="Configured item is below the game Master Loot threshold; distribute it manually or adjust the game loot threshold." end
         if item and item.quality>=threshold and self:AutomaticLootRule(item.quality) then
-            local token=corpseToken(item.source,slot,item.link);local intent=s.corpseRoutes and s.corpseRoutes[token]
-            if not intent then self:SendCorpseAction("corpsePrepare",item,token);return end
+            local token,intent=self:PreparedCorpseRoute(item)
+            local stacked=stackedIDs[item.source..":"..item.link:match("item:(%d+)")]
+            if stacked then self.lootRoutingStatus="Stacked materials need manual distribution; continuing eligible single-copy items." end
             -- Terminal assignments must not prevent inspection of later slots.
-            if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
+            if intent and not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
                 if intent.ready and intent.by==self.me and intent.link==item.link
                     and intent.revision==(s.lootConfigRevision or 0) and not self.corpseAttempts[token] then
                     local unit=self.roster[intent.target];local candidate
@@ -316,7 +343,8 @@ function A:TickLootConfiguration()
                     end
                     self.lootRoutingStatus="Recipient is not eligible for this corpse item"
                 elseif not intent.ready then self.lootRoutingStatus="Awaiting recipient addon and bag verification" end
-                return -- One corpse item at a time keeps bag evidence unambiguous.
+                -- An unready or ineligible, unsent item must not block a
+                -- different ready item. Active sends are gated above.
             end
         end
     end

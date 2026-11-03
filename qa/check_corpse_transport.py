@@ -4,7 +4,7 @@ from lupa.lua51 import LuaRuntime
 root=Path(__file__).resolve().parent.parent
 source=root/'SanguineLootTools'
 
-def peer(name, before=False, identical=False):
+def peer(name, before=False, identical=False, salvage=False):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute('''
 A={};SlashCmdList={};now=0;outbox={};bags={};gives={};NUM_BAG_SLOTS=0;combat=false
@@ -44,19 +44,21 @@ function A:ClearPendingPersonalResponse() end
 function A:RequestSync() error('unexpected state revision gap') end
 function UnitIsConnected() return true end
 function GetMasterLootCandidate(slot,index) if index==1 then return 'Bank-Realm' end end
-function GetLootThreshold() return 3 end
+lootThreshold=3
+function GetLootThreshold() return lootThreshold end
 slots={
  {id=209578,name='Glowing Leather Bands'},
  {id=211506,name='Twilight Avenger Boots'}}
 function itemLink(id,name,level)
     return '|cff0070dd|Hitem:'..id..'::::::::'..level..':::::::::|h['..name..']|h|r'
 end
-function GetNumLootItems() return 2 end
+lootSlotCount=2
+function GetNumLootItems() return lootSlotCount end
 function GetLootSlotLink(slot)
     local item=slots[slot];return item and itemLink(item.id,item.name,25)
 end
 function GetLootSlotInfo(slot)
-    if slots[slot] then return 1,slots[slot].name,1,nil,3,false,false end
+    if slots[slot] then return 1,slots[slot].name,1,nil,slots[slot].quality or 3,false,false end
 end
 function GetLootSourceInfo(slot) if slots[slot] then return 'Creature-Boss',1 end end
 function GiveMasterLoot(slot,index)
@@ -69,10 +71,13 @@ end
 C_Container={GetContainerNumSlots=function() return 4 end,
     GetContainerItemInfo=function(bag,slot)
         local item=bags[slot]
-        if item then return {hyperlink=itemLink(item.id,item.name,60),stackCount=1,isLocked=false} end
+        if item then return {hyperlink=itemLink(item.id,item.name,60),stackCount=item.count or 1,isLocked=false} end
     end}
 ItemLocation={CreateFromBagAndSlot=function(_,bag,slot) return {slot=slot} end}
-C_Item={GetItemGUID=function(loc) return bags[loc.slot].guid end,IsBound=function() return true end}
+C_Item={GetItemGUID=function(loc) return bags[loc.slot].guid end,IsBound=function() return true end,
+    GetItemInfo=function(link)
+        return 'Item',link,3,30,25,'Item','Item',link:match('item:900001:') and 20 or 1
+    end}
 SanguineLootCouncilDB={}
 A:InitStorage()
 A.state={id='transport-test',leader='Master-Realm',master='Master-Realm',council={},items={},trackedLoot={},
@@ -84,11 +89,21 @@ A.rev=1;A.publicBaseline=A:PublicState();A.corpseOpen=A.me=='Master-Realm'
 ''')
     if identical:
         lua.execute('slots[2].id=slots[1].id;slots[2].name=slots[1].name')
+    if salvage:
+        lua.execute('''
+slots[4],slots[5]=slots[1],slots[2]
+for i=1,3 do slots[i]={id=900001,name='Grime-Encrusted Salvage',quality=2} end
+lootSlotCount=5
+lootThreshold=2
+A.state.lootConfiguration.rules[3]={action='assign',target='Bank-Realm',reason='Guild Bank',note=''}
+A.publicBaseline=A:PublicState()
+if A.me=='Bank-Realm' then bags[1]={id=900001,name='Grime-Encrusted Salvage',count=12,guid='Item-Existing-Stack'} end
+''')
     return lua
 
-def run(before=False, identical=False, fast=True, cold=False):
-    master=peer('Master-Realm',before,identical)
-    recipient=peer('Bank-Realm',before,identical)
+def run(before=False, identical=False, fast=True, cold=False, salvage=False):
+    master=peer('Master-Realm',before,identical,salvage)
+    recipient=peer('Bank-Realm',before,identical,salvage)
     peers=[master,recipient]
     fragments=[0,0]
     given=0
@@ -126,7 +141,7 @@ def run(before=False, identical=False, fast=True, cold=False):
         while given<len(native):
             given+=1
             drop=native[given]
-            recipient.globals().bags[given]=recipient.table_from({
+            recipient.globals().bags[given+(1 if salvage else 0)]=recipient.table_from({
                 'id':drop.id,'name':drop.name,'guid':'Item-Received-'+str(given)})
             recipient.execute("A:LootConfigurationEvent('BAG_UPDATE_DELAYED')")
         # Continue after both native sends until both canonical copies arrive.
@@ -141,6 +156,17 @@ def run(before=False, identical=False, fast=True, cold=False):
         assert entries[1].guid!=entries[2].guid
         assert entries[1].delivery=='delivered' and entries[2].delivery=='delivered'
     first,second=master.globals().gives[1].at,master.globals().gives[2].at
+    if salvage:
+        assert master.globals().gives[1].slot==4 and master.globals().gives[2].slot==5
+        master.execute('''
+local blocked=0
+for _,route in pairs(A.state.corpseRoutes) do
+    if route.failure=='stacked' then blocked=blocked+1;assert(route.failed and not route.started) end
+end
+assert(blocked==1 and slots[1] and slots[2] and slots[3],'blocked material routes '..blocked)
+A:TickLootConfiguration()
+assert(A.lootRoutingStatus=='Stacked materials need manual distribution; continuing eligible single-copy items.')
+''')
     return {'first':round(first-start,2),'second':round(second-start,2),
             'gap':round(second-first,2),'synced':end,'fragments':fragments}
 
@@ -155,6 +181,8 @@ if __name__=='__main__':
     assert after['first']<polling['first'],(polling,after)
     assert cold_fast['first']<cold_polling['first'],(cold_polling,cold_fast)
     identical=run(identical=True)
+    salvage=run(salvage=True)
+    assert salvage['first']<10 and salvage['gap']<10,salvage
     # An urgent wake is scheduling only: permission/combat/window checks still
     # run immediately before any native item transfer.
     for change in ["A:LootConfigurationEvent('LOOT_CLOSED')",'combat=true',
@@ -173,4 +201,5 @@ assert(#gives==0)
     print('Two real codec/queue peers, 1 message/sec: before',before,'after',after)
     print('Polling versus event wake: warm',polling,after,'depleted burst',cold_polling,cold_fast)
     print('Identical copies retain sequential receipt proof:',identical)
+    print('Three stacked-material slots ahead of two blues: blues progress, materials remain manual:',salvage)
     print('Both native sends and canonical delivered awards verified; simulated timing is not a native-client guarantee.')

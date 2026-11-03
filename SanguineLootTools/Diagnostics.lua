@@ -62,8 +62,9 @@ function A:DiagnosticReport()
     local claims=0
     for _,claim in pairs(self.lootHolderClaims or {}) do if self.Client:ServerTime()-claim.sampledAt<=90 then claims=claims+1 end end
     lines[#lines+1]=string.format("Holder handovers: %d confirmed | %d awaiting matching bag evidence",self.lootHandoverCount or 0,claims)
-    local ready,start,clear,receipt,expired,oldest=0,0,0,0,0,0
+    local ready,start,clear,receipt,expired,oldest,stacked=0,0,0,0,0,0,0
     for _,route in pairs(self.state and self.state.corpseRoutes or {}) do
+        if route.failed and route.failure=="stacked" then stacked=stacked+1 end
         if not route.finished and not route.failed then
             local age=math.max(0,self.Client:ServerTime()-(route.time or 0))
             oldest=math.max(oldest,age)
@@ -75,6 +76,7 @@ function A:DiagnosticReport()
         end
     end
     lines[#lines+1]=string.format("Automatic assignments pending: %d recipient ready | %d start | %d corpse clear | %d bag receipt | %d expired | %ds oldest",ready,start,clear,receipt,expired,oldest)
+    lines[#lines+1]=string.format("Stackable material routes requiring manual distribution: %d",stacked)
     lines[#lines+1]="API presence (presence alone does not verify behaviour):"
     for _,api in ipairs(self.Client:APIInventory()) do lines[#lines+1]=api.name..": "..(api.available and "present" or "MISSING") end
     lines[#lines+1]="Recording: "..(self.diagnosticRecording and "on" or "off").." | latest 200 events, current login only"
