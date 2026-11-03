@@ -19,7 +19,7 @@ function CreateFrame(kind,name,parent)
 end
 function methods:GetParent() return self.parent end
 function methods:GetChildren() return unpack(self.children) end
-function methods:GetRegions() end
+function methods:GetRegions() return unpack(self.regions or {}) end
 function methods:GetFrameLevel() return self.level end
 function methods:GetFrameStrata() return self.strata end
 function methods:GetWidth() return self.width end
@@ -58,7 +58,7 @@ function highest(frame)
     return level
 end
 ''')
-for name in ['WindowLayouts','UI']:
+for name in ['WindowLayouts','UI','CouncilUI']:
     lua.execute((SRC/f'{name}.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
 lua.execute('''
 settings=root();response=root();voting=root();timer=root();correction=root();confirmation=root()
@@ -88,6 +88,54 @@ timer:Show();assert(timer:IsShown() and settings:IsShown() and response:IsShown(
 assert(highest(settings)<timer.level)
 ''')
 print('Opaque backgrounds, complete window focus, late controls, reparenting, collapse and independent Timer passed.')
+
+lua.execute('''
+-- Reproduce Voting's opaque surface and details created on the outer frame.
+-- Every detail must belong to the surface, rather than a sibling layer that
+-- native hide/show sorting can draw behind the background.
+local surface=CreateFrame('Frame',nil,voting)
+A.ui.votingSurface=surface
+voting.sltHeader=CreateFrame('Frame',nil,voting)
+voting.resizeGrip=CreateFrame('Button',nil,voting)
+A.ui.selectedLootPane=CreateFrame('Frame',nil,voting)
+A.ui.votingHistory={frame=CreateFrame('Frame',nil,voting)}
+local itemIcon=CreateFrame('Frame',nil,voting)
+local row=CreateFrame('Button',nil,voting)
+local summary=CreateFrame('Frame',nil,voting)
+local headings={}
+for i=1,9 do
+    local r={parent=voting,text='heading'..i,shown=true}
+    function r:SetParent(parent)
+        for j,region in ipairs(self.parent.regions or {}) do
+            if region==self then table.remove(self.parent.regions,j);break end
+        end
+        self.parent=parent;parent.regions=parent.regions or {}
+        parent.regions[#parent.regions+1]=self
+    end
+    function r:GetObjectType() return 'FontString' end
+    headings[i]=r
+end
+voting.regions={unpack(headings)}
+A:ParentVotingContent()
+for _,r in ipairs(headings) do assert(r.parent==surface and r.text and r.shown) end
+assert(itemIcon.parent==surface and row.parent==surface and summary.parent==surface)
+assert(surface.parent==voting and voting.sltHeader.parent==voting)
+assert(A.ui.selectedLootPane.parent==voting and A.ui.votingHistory.frame.parent==voting)
+assert(voting.resizeGrip.parent==voting)
+for i=1,20 do
+    voting:Show();A:FocusWindow(settings);A:FocusWindow(voting)
+    assert(itemIcon:IsVisible() and row:IsVisible() and summary:IsVisible())
+    assert(itemIcon.level>=surface.level and row.level>=surface.level)
+    voting:Hide()
+    assert(not itemIcon:IsVisible())
+end
+voting:Show()
+A:CaptureWindowBody(voting);voting.sltBody:Hide()
+assert(not itemIcon:IsVisible())
+voting.sltBody:Show();A:RefreshWindowLayers()
+assert(itemIcon:IsVisible() and row:IsVisible() and summary:IsVisible())
+''')
+print('Voting content stays above its background through repeated reopen, focus and collapse/expand cycles.')
 
 lua.execute('''
 voting:Show();correction:Show()

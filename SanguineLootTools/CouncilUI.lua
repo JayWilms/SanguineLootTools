@@ -237,6 +237,23 @@ function A:BuildCouncilUI(u, window, text, button)
     self:BuildSelectedLootTooltip(u, f, text)
     self:BuildVotingHistory(u,f,text,button)
 end
+function A:ParentVotingContent()
+    local u=self.ui
+    local frame,surface=u.main,u.votingSurface
+    -- The opaque voting surface must own its content. Sibling regions on the
+    -- outer frame can be painted underneath it after hide/show or focus changes.
+    local excluded={[surface]=true,[frame.sltHeader]=true}
+    if frame.resizeGrip then excluded[frame.resizeGrip]=true end
+    if frame.sltDialogBlocker then excluded[frame.sltDialogBlocker]=true end
+    if u.selectedLootPane then excluded[u.selectedLootPane]=true end
+    if u.votingHistory then excluded[u.votingHistory.frame]=true end
+    for _,child in ipairs({frame:GetChildren()}) do
+        if not excluded[child] then child:SetParent(surface) end
+    end
+    for _,region in ipairs({frame:GetRegions()}) do
+        if region~=frame.headerBand then region:SetParent(surface) end
+    end
+end
 function A:LayoutVotingColumns(surface)
     local u=self.ui
     local width=surface-80

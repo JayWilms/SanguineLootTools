@@ -289,7 +289,7 @@ end
 function A:BuildLootTimerUI(u,window,text,button)
     local p={page=0,rows={}}
     u.lootTimers=p
-    p.window=window("SanguineLootCouncilTimer","Sanguine Loot Tools - Timer",600,320)
+    p.window=window("SanguineLootCouncilTimer","Sanguine Loot Tools - Timer",600,320,nil,false)
     p.itemHeader=text(p.window,"Item",11,24,-50,210)
     p.timeHeader=text(p.window,"Trade time",11,250,-50,145)
     p.holderHeader=text(p.window,"Holder",11,420,-50,155)

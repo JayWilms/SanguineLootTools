@@ -1,4 +1,31 @@
-# Alpha.45 raid testing checklist
+# Alpha.47 raid testing checklist
+
+## Alpha.47 Voting reopen fix
+
+Voting content now belongs to its opaque surface, keeping item details, column
+headings and vote summaries above the background when the window reopens.
+
+- [ ] Close and reopen Voting repeatedly using its close button, Escape and
+  launcher. Check the item icon/name/details, leader line, all column headings,
+  vote summary and footer buttons stay visible with the same session data.
+- [ ] Repeat after resizing, changing the selected item, overlapping Settings,
+  and collapsing/expanding Voting. Check both sidebar panes and award dialogs.
+
+## Alpha.46 raid timers, Escape and test countdown
+
+Classic bag-tooltip fallback for raid trade timers and Timer staying open on
+Escape are included in alpha.46. All 13 local suites pass; native checks remain.
+
+- [ ] With alpha.47 on the holder and raid clients, verify a soulbound
+  raid drop with a visible trade timer shows a countdown in both Loot and Timer.
+  Existing tracked copies should refresh from the holder's bag scan without
+  another pickup or manual addition. Allow 20 seconds outside combat for a scan.
+- [ ] Compare the countdown with the item's tooltip, then verify it decreases.
+  Check a second item without a timer does not inherit the first item's reading.
+- [ ] Press Escape with Timer open. It should stay open, and its close button
+  should still work. Other windows should retain their usual Escape behavior.
+
+- [ ] Restart solo and group tests, queue loot and confirm responses start at 60 seconds.
 
 ## Alpha.45 dropdown click fix
 
@@ -27,7 +54,7 @@ the regression check reproduces the blocked option clicks before this fix.
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.45**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.47**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.

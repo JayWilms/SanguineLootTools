@@ -38,18 +38,42 @@ function A:DurationSeconds(text)
     if found and integer(total, 0, 604800) then return total end
 end
 
-function A:ReadTradeTimer(bag, slot, location)
-    local data = invoke(C_TooltipInfo, "GetBagItem", bag, slot)
-    if type(data) ~= "table" or type(data.lines) ~= "table" then
-        if invoke(C_Item,"IsBound",location)==false then return "unbound" end
-        return "unknown"
-    end
+-- Classic clients can lack C_TooltipInfo. Use a separate tooltip populated
+-- from this exact bag slot, never the shared tooltip or a generic item link.
+function A:ReadLegacyBagTooltip(bag,slot)
+    if not UIParent or type(CreateFrame)~="function" then return end
+    local ok,lines=self.Client:Invoke(function()
+        local tooltip=self.tradeScanTooltip
+        if not tooltip then
+            tooltip=CreateFrame("GameTooltip","SanguineLootToolsTradeScanTooltip",UIParent,"GameTooltipTemplate")
+            self.tradeScanTooltip=tooltip
+        end
+        tooltip:SetOwner(UIParent,"ANCHOR_NONE")
+        tooltip:ClearLines()
+        tooltip:SetBagItem(bag,slot)
+        local result={}
+        local count=tooltip:NumLines()
+        if integer(count,0,100) then
+            for i=1,count do
+                local line=_G["SanguineLootToolsTradeScanTooltipTextLeft"..i]
+                local value=line and line:GetText()
+                if plain(value) and type(value)=="string" then result[#result+1]={leftText=value} end
+            end
+        end
+        tooltip:Hide()
+        return result
+    end)
+    if self.tradeScanTooltip then self.Client:Invoke(self.tradeScanTooltip.Hide,self.tradeScanTooltip) end
+    if ok and type(lines)=="table" then return lines end
+end
+
+function A:TradeTimerFromLines(lines)
     local tradeType = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.TradeTimeRemaining
     local format = BIND_TRADE_TIME_REMAINING
     if type(format) == "string" then format = format:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") end
     local prefix, suffix
     if type(format) == "string" then prefix, suffix = format:match("^(.-)%%s(.*)$") end
-    for _, line in ipairs(data.lines) do
+    for _, line in ipairs(lines or {}) do
         local text = line.leftText
         if plain(text) and type(text) == "string" then
             text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
@@ -63,6 +87,19 @@ function A:ReadTradeTimer(bag, slot, location)
             end
         end
     end
+end
+
+function A:ReadTradeTimer(bag, slot, location)
+    local data=invoke(C_TooltipInfo,"GetBagItem",bag,slot)
+    local kind,seconds
+    if type(data)=="table" and type(data.lines)=="table" then
+        kind,seconds=self:TradeTimerFromLines(data.lines)
+        if kind=="timed" then return kind,seconds end
+    end
+    local fallback=self:ReadLegacyBagTooltip(bag,slot)
+    local legacyKind,legacySeconds=self:TradeTimerFromLines(fallback)
+    if legacyKind=="timed" then return legacyKind,legacySeconds end
+    if kind=="unknown" or legacyKind=="unknown" then return "unknown" end
     if invoke(C_Item, "IsBound", location) == false then return "unbound" end
     return "unknown" -- no text is not proof that the item expired
 end

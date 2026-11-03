@@ -12,7 +12,7 @@ version = re.search(r'^## Version: (.+)$', toc, re.M).group(1).strip()
 core = (source / 'Core.lua').read_text(encoding='utf-8')
 assert f'A.version = "{version}"' in core
 assert 'A.protocol = 15' in core
-assert core.count('self.state.responseDuration=120') == 2
+assert core.count('self.state.responseDuration=60') == 2
 files = sorted(p for p in source.rglob('*') if p.is_file())
 assert len(files) == 37
 output = root / 'outputs' / f'SanguineLootTools-{version}-install.zip'

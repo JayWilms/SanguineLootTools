@@ -286,7 +286,7 @@ local function edit(parent, x, y, width, hint)
     return e
 end
 
-local function window(name, title, w, h, transient)
+local function window(name, title, w, h, transient, escapeCloses)
     local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
     f:SetSize(w, h)
     f:SetPoint("CENTER")
@@ -304,7 +304,7 @@ local function window(name, title, w, h, transient)
     close:SetSize(22,22);close:ClearAllPoints();close:SetPoint("TOPRIGHT", -6, -6)
     A:StyleCrossButton(close)
     f.closeButton=close
-    table.insert(UISpecialFrames, name)
+    if escapeCloses~=false then table.insert(UISpecialFrames, name) end
     f:Hide()
     A.allWindowFrames = A.allWindowFrames or {}
     A.allWindowFrames[#A.allWindowFrames+1] = f
@@ -719,6 +719,7 @@ function A:BuildUI()
         b:SetHeight(34);u.launcherButtons[name]=b
     end
     self:BuildConfirmationUI(u,window,text,button)
+    self:ParentVotingContent()
     self:RestoreWindowLayouts()
     for _,frame in ipairs({u.main,u.voting}) do
         frame:HookScript("OnShow",function(f) if not A:CanViewCouncil() then f:Hide() end end)

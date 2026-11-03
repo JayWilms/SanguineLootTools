@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.45 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.47 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,21 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.45, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.47, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.46
+- Voting details, headings, images and controls belong to the voting surface
+  so its opaque background cannot cover them after reopening or focus changes.
+- Repeated reopen, focus and collapse/expand cycles have regression coverage.
+- All thirteen local suites pass. Native display checks remain pending.
+
+NEW SINCE ALPHA.45
+- Raid trade timers fall back to the exact bag item tooltip on Classic clients
+  without C_TooltipInfo. Existing tracked copies refresh on a holder bag scan.
+- Escape leaves Timer open; the close button still works.
+- Solo and group test response rounds now start at 60 seconds. Normal raid
+  response settings are unchanged. Restart the test to use the new default.
+- All thirteen local suites pass; native confirmation is pending. Protocol 15.
 
 NEW SINCE ALPHA.44
 - Corrected shared dropdown layers so the outside-click catcher sits below
@@ -170,7 +184,7 @@ Fixed sizes for other windows, title-bar lock/collapse controls, retained Respon
 expiry, modern Shift-click insertion, Voting loot navigation, SLT logo, clean
 scrollbars, rounded Settings toggles, section dividers, immediate
 response ticks, Loot-first manual additions and SoD-only 20-item tests.
-/slt test opens Loot for the Master Looter; queue items to start 120-second rounds.
+/slt test opens Loot for the Master Looter; queue items to start 60-second rounds.
 Real bag/trade/history actions remain disabled in test mode. Soft Reserve is planned.
 Add loot requires a physical single item in carried bags; Shift-click selects its exact copy.
 Bag-added items use normal trading after award; stack splitting and trade eligibility apply.
