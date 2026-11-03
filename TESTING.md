@@ -1,6 +1,18 @@
-# Alpha.43 raid testing checklist
+# Alpha.44 raid testing checklist
 
-Everyone testing together should use **0.12.0-alpha.43**, protocol **15**.
+## Alpha.44 raid member pickers
+
+- [ ] In Settings > Council, turn off Follow in-game Master Looter to enable manual master assignment. Open Choose current group member, select a full Name-Realm, then click Assign. Selection alone must not change the assignment.
+- [ ] Select a current member with the council picker, then click Add / remove. Existing council members should be marked in the picker, and selecting an existing member should allow removal with the same button.
+- [ ] Test two members with the same character name on different realms, a full 40-member raid, scrolling, and both the picker button and its arrow.
+- [ ] Change a typed name manually after selecting from a picker. Ordinary UI refreshes must preserve the typed name.
+- [ ] Check roster joins/leaves while a picker is open. The picker should close on roster changes and show the current list when reopened.
+- [ ] While solo, empty pickers should be disabled and manual Name-Realm entry should still save the next-session setup.
+- [ ] Confirm live non-leaders cannot use either assignment method, council changes remain locked during active ballots, and following the in-game Master Looter disables manual master assignment.
+
+All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
+
+Everyone testing together should use **0.12.0-alpha.44**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.
@@ -53,7 +65,7 @@ python tools/build_install.py
 
 This writes and verifies the current installer in `outputs`. It does not publish or upload anything. Build only when explicitly requested.
 
-## Alpha.43 window dragging acceptance (native test pending)
+## Alpha.44 window dragging acceptance (native test pending)
 
 - [ ] Each of the three affected users repeats the original failure with build 42.
 - [ ] Record affected window, resolution, window mode, UI scale, and other UI addons.

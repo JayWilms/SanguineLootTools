@@ -43,6 +43,57 @@ function A:BindSettingsDropdown(control,choices,action,button)
     local u=self.ui;u.settingsDropdownControls=u.settingsDropdownControls or {}
     u.settingsDropdownControls[#u.settingsDropdownControls+1]=control
 end
+function A:RaidMemberPickerEditable(role)
+    if not self:CanConfigureRaid() then return false end
+    local s=self.state
+    if role=="master" then
+        return (not s and not self:RaidSettings().masterAutoSync)
+            or (s~=nil and not (s.masterAutoSync and (s.masterSource=="game" or s.masterBlocked)))
+    end
+    if role=="council" then return not self:VotingLocked() or (s~=nil and s.groupTest==true) end
+    return false
+end
+function A:RaidMemberChoices(role)
+    local names,choices={},{}
+    for name in pairs(self.roster or {}) do names[#names+1]=name end
+    table.sort(names)
+    local council=self:RaidSettings().council
+    for _,name in ipairs(names) do
+        choices[#choices+1]={name..(role=="council" and council[name] and " (Council)" or ""),name}
+    end
+    return choices
+end
+function A:BuildRaidMemberPickers(parent,button,dropdown)
+    local u=self.ui
+    local function picker(role,field)
+        local control=button(parent,"Choose current group member",0,0,250,function() end)
+        dropdown(control,function() return A:RaidMemberChoices(role) end,function(name)
+            if not A:RaidMemberPickerEditable(role) or not A.roster[name] then return end
+            field:SetText(name);field:ClearFocus()
+        end)
+        return control
+    end
+    u.masterMemberPicker=picker("master",u.masterName)
+    u.councilMemberPicker=picker("council",u.councilName)
+end
+function A:RefreshRaidMemberPickers()
+    local u=self.ui
+    if not u or not u.masterMemberPicker then return end
+    local choices=self:RaidMemberChoices("master")
+    local names={}
+    for _,choice in ipairs(choices) do names[#names+1]=choice[2] end
+    local key=table.concat(names,"\n")
+    local menu=u.settingsDropdown
+    if key~=u.raidMemberPickerRoster and menu and
+        (menu.owner==u.masterMemberPicker or menu.owner==u.councilMemberPicker) then
+        self:CloseSettingsDropdown()
+    end
+    u.raidMemberPickerRoster=key
+    local master,council=self:RaidMemberPickerEditable("master"),self:RaidMemberPickerEditable("council")
+    u.masterName:SetEnabled(master);u.councilName:SetEnabled(council)
+    u.masterMemberPicker:SetEnabled(master and #choices>0)
+    u.councilMemberPicker:SetEnabled(council and #choices>0)
+end
 function A:BuildSettingsUI(u,window,text,button,edit)
     local hub=window("SanguineLootCouncilSettings","Sanguine Loot Tools  |  Settings",1000,720)
     u.settingsHub=hub;u.settingsPages={};u.settingsTabs={};u.settingsScrolls={};u.settingsPositions={};u.settingsRows={};u.settingsSections={}
@@ -142,15 +193,18 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     u.masterStatus=text(council,"",11,0,-32,690);position(u.masterStatus,council,0,32,function(w) return w end,38);u.masterStatus:SetMaxLines(2)
     switch(u.autoMaster);row(council,"Follow in-game Master Looter","Keep the addon assignment aligned with the game's loot role.",90,u.autoMaster,76)
     section(council,"Manual assignment",175)
+    self:BuildRaidMemberPickers(council,button,dropdown)
     position(u.masterName,council,0,218,function(w) return w-195 end,28);u.masterName.hint:Hide()
     position(u.setMaster,council,function(w) return w-180 end,218,180,28)
-    description(council,"Enter Name-Realm. Manual assignment is unavailable while actively following the game's Master Looter.",255)
-    description(council,"Automatic collection and distribution settings are in Loot Configuration.",315)
+    position(u.masterMemberPicker,council,0,255,function(w) return w-195 end,28)
+    description(council,"Pick a current group member or type Name-Realm, then click Assign. Manual assignment is unavailable while actively following the game's Master Looter.",295)
+    description(council,"Prepare names while solo. Collection and distribution settings are in Loot Configuration.",350)
     section(council,"Council membership",405)
     position(u.councilName,council,0,453,function(w) return w-195 end,28);u.councilName.hint:Hide()
     position(u.toggleCouncil,council,function(w) return w-180 end,453,180,28)
-    description(council,"Enter Name-Realm to add or remove a council member.",490)
-    position(u.councilList,council,0,545,function(w) return w end,100)
+    position(u.councilMemberPicker,council,0,490,function(w) return w-195 end,28)
+    description(council,"Pick a current group member or type Name-Realm, then click Add / remove. Current council members are marked in the list.",530)
+    position(u.councilList,council,0,580,function(w) return w end,90)
     section(council,"Voting rules",680)
     switch(u.selfVotes);row(council,"Allow self-voting","Council members may vote for themselves.",723,u.selfVotes,76)
     dropdown(u.ruleLimit,{{"1 candidate",1},{"2 candidates",2},{"3 candidates",3}},function(v) A:UpdateVotingRule("limit",v) end)
@@ -570,6 +624,7 @@ function A:RenderSettings()
     for _,control in ipairs({u.warningTrade,u.warningSound,u.warningEarly,u.warningUrgent,u.warningApply}) do control:SetEnabled(self:CanConfigureRaid()) end
     self:RenderSettingsPresentation()
     self:RenderLootConfigurationUI()
+    self:RefreshRaidMemberPickers()
     self:RefreshSettingsDropdowns()
 end
 function A:RenderAddonCheck()
