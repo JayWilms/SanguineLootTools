@@ -223,7 +223,18 @@ function A:TickLootConfiguration()
         if not intent or intent.finished or intent.failed or self.Client:ServerTime()-intent.time>60 then self.corpseSnapshots[token]=nil end
     end
     for id in pairs(self.routeAttempts) do if not self:TrackedByID(id) then self.routeAttempts[id]=nil end end
+    local recipientRoutes={}
     for token,intent in pairs(s.corpseRoutes or {}) do
+        if intent.target==self.me then recipientRoutes[#recipientRoutes+1]={token=token,intent=intent} end
+    end
+    table.sort(recipientRoutes,function(a,b)
+        local x,y=a.intent,b.intent
+        if x.time~=y.time then return x.time<y.time end
+        if x.source~=y.source then return x.source<y.source end
+        return x.slot<y.slot
+    end)
+    for _,route in ipairs(recipientRoutes) do
+        local token,intent=route.token,route.intent
         if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60
             and (intent.started or intent.revision==(s.lootConfigRevision or 0)) then
             if intent.target==self.me then
@@ -261,6 +272,27 @@ function A:TickLootConfiguration()
     end
     local n=call(GetNumLootItems);local threshold=call(GetLootThreshold)
     if not int(n,0,40) or not int(threshold,0,5) then return end
+    -- Prepare distinct item IDs together so the next recipient snapshot can
+    -- finish before the previous award's larger public update is transmitted.
+    -- Copies of one ID need separate baselines, even when their links differ.
+    local reservedIDs,prepared={},false
+    for _,intent in pairs(s.corpseRoutes or {}) do
+        if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
+            reservedIDs[intent.link:match("item:(%d+)")]=true
+        end
+    end
+    for slot=1,n do
+        local item=self:NativeCorpseItem(slot)
+        if item and item.quality>=threshold and self:AutomaticLootRule(item.quality) then
+            local token=corpseToken(item.source,slot,item.link)
+            local id=item.link:match("item:(%d+)")
+            if not (s.corpseRoutes and s.corpseRoutes[token]) and not reservedIDs[id] then
+                self:SendCorpseAction("corpsePrepare",item,token)
+                reservedIDs[id],prepared=true,true
+            end
+        end
+    end
+    if prepared then return end
     for slot=1,n do
         local item=self:NativeCorpseItem(slot)
         if item and item.quality<threshold and self:AutomaticLootRule(item.quality) then self.lootRoutingStatus="Configured item is below the game Master Loot threshold; distribute it manually or adjust the game loot threshold." end
@@ -290,6 +322,8 @@ function A:TickLootConfiguration()
     end
 end
 function A:LootConfigurationEvent(event,...)
+    if event=="LOOT_OPENED" or event=="LOOT_READY" or event=="LOOT_SLOT_CLEARED" or event=="LOOT_CLOSED"
+        or (event=="BAG_UPDATE_DELAYED" and self.state and next(self.state.corpseRoutes or {})) then self.corpseScanSoon=true end
     if event=="LOOT_OPENED" or event=="LOOT_READY" then self.corpseOpen=true
     elseif event=="LOOT_CLOSED" then
         self.corpseOpen=false

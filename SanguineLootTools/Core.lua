@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.50"
+A.version = "0.12.0-alpha.52"
 A.protocol = 15
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -84,6 +84,7 @@ function A:DisplayName(name)
 end
 
 function A:Changed()
+    if self.corpseOpen or (self.state and next(self.state.corpseRoutes or {})) then self.corpseScanSoon=true end
     if self.PrimeLootBagSnapshot then self:PrimeLootBagSnapshot() end
     if self.PruneActiveCaches then self:PruneActiveCaches() end
     if self.PersistSession then self:PersistSession() end

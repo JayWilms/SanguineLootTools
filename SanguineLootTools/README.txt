@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.50 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.52 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,25 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.50, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.52, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.51
+- Loot, bag and state changes coalesce into assignment checks on the existing
+  0.1-second loop, outside event/reducer calls. One-second fallback retained.
+- Recipient readiness replies follow loot-slot order. Native authority, combat,
+  corpse-open and new-copy receipt checks and network pacing remain enforced.
+- All sixteen local suites pass. Simulation first-send time with a depleted
+  burst allowance improves from 5.0 to 2.4 seconds; native timing is pending.
+
+NEW SINCE ALPHA.50
+- Prepare recipient snapshots for distinct boss drops together. Physical sends
+  remain sequential, with fresh-GUID receipt proof for each copy.
+- Identical item IDs retain separate baselines to prevent ambiguous receipts.
+- Diagnostics distinguish automatic collection/assignment, the blue rule,
+  addon/native Master Loot authority and whether the corpse window is open.
+- All sixteen local suites pass. The two-client transport simulation reduces
+  the gap between two distinct items from 14 seconds to 3 seconds at one message
+  per second. Native raid timing remains unverified. Protocol 15 retained.
 
 NEW SINCE ALPHA.49
 - Receipt snapshots/reservations match item IDs across character-specific link

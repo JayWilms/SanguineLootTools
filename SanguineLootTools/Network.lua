@@ -189,6 +189,14 @@ function A:Send(packet,target,options)
     return true
 end
 
+function A:ServiceCorpseActions()
+    if not self.corpseScanSoon then return end
+    self.corpseScanSoon=nil
+    -- Called by the update loop, never recursively from an event or reducer.
+    -- Repeated events coalesce; the normal one-second tick remains a fallback.
+    self:TickLootConfiguration()
+end
+
 function A:NetworkQueueStats()
     local count,oldest,bytes=0,0,0
     for _,batch in ipairs(queue) do count=count+#batch.parts-batch.index+1;oldest=math.max(oldest,A.Client:Uptime()-batch.created);bytes=bytes+batch.bytes end
@@ -713,6 +721,7 @@ frame:SetScript("OnUpdate", function(_, dt)
     end
     if elapsed >= 0.10 then
         elapsed = 0
+        A:ServiceCorpseActions()
         A:PumpSender()
     end
     if syncElapsed >= 30 then

@@ -96,13 +96,13 @@ for i=1,8 do tick() end
 assert(gives==1 and #A.state.items==0)
 assert(A.lootRoutingStatus=='Awaiting recipient bag confirmation before the next item')
 local first
-for _,intent in pairs(A.state.corpseRoutes) do first=intent end
+for _,intent in pairs(A.state.corpseRoutes) do if intent.started then first=intent end end
 confirm(first)
 for i=1,8 do tick() end
 assert(gives==2)
 -- A failed early slot must not block a later eligible item.
 setup('failed');tick()
-for _,intent in pairs(A.state.corpseRoutes) do intent.failed=true end
+for _,intent in pairs(A.state.corpseRoutes) do if intent.slot==1 then intent.failed=true end end
 slots[1]=nil
 for i=1,8 do tick() end
 assert(gives==1 and #A.state.items==1)

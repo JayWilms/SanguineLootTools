@@ -1,4 +1,49 @@
-# Alpha.50 raid testing checklist
+# Alpha.52 raid testing checklist
+
+## Alpha.52 first-item startup delay
+
+Loot, bag and state changes now schedule an assignment check on the existing
+0.1-second update loop. Repeated events coalesce into one pending wake; checks
+run outside the event/reducer call stack and the one-second fallback remains.
+Readiness replies are prepared in loot-slot order. Network refill and native
+authority, combat, recipient proof and corpse-window guards remain in effect.
+
+The actual-queue simulation with depleted burst allowance reduces first-send
+time from 5.0 to 2.4 seconds; with a fresh allowance it changes from 3.0 to 0.4.
+These are simulated timings, not native guarantees. All 16 suites pass, including
+closing the corpse, entering combat, losing authority or disabling automation
+between scheduling and execution, and sequential proof for identical copies.
+
+- [ ] Time the first and second automatic drop on alpha.52, both after
+  login and after ordinary addon traffic. Compare with the alpha.51 raid result
+  of roughly 7 seconds for the first item and 3 seconds to the second.
+- [ ] Verify exactly one transfer and delivery record per copy. Close/reopen
+  the corpse and test a paused/changed assignment without duplicate transfers.
+- [ ] For a remaining delay, capture both clients' diagnostics during the wait.
+
+## Alpha.51 prepare distinct boss drops together
+
+Recipient snapshots for different item IDs are prepared together before the
+first send. The next distinct item need not wait for a large award broadcast
+before beginning its readiness round trip. Physical sends remain sequential and
+each receipt still requires one new bag GUID. Identical item IDs retain separate
+snapshots to avoid attributing the same copy to two awards.
+
+The new two-client transport suite runs the actual reducer, codec, send queues
+and receiver at one message per second. The modeled gap between two distinct
+drops decreases from 14 seconds (alpha.50 fixture) to 3 seconds; both clients
+receive both delivered awards. Identical-copy receipt checks also pass. These
+numbers are simulations, not verified native timings. All 16 suites pass.
+
+- [ ] Time two different automatic blue drops on alpha.51, with all
+  participants updated. Verify both physical receipts and delivery records.
+- [ ] Repeat with two identical copies, an old identical copy already in the
+  recipient's bags, and overlapping countdown/response traffic.
+- [ ] Confirm no physical send occurs before the recipient's snapshot is ready
+  and no copy receives two awards. Capture diagnostics during any long pause.
+
+Diagnostics also now show automatic assignment separately from collection,
+the blue rule, local addon/native Master Loot authority and corpse-window state.
 
 ## Alpha.50 receipt hyperlinks and duplicate confirmations
 
@@ -94,7 +139,7 @@ headings and vote summaries above the background when the window reopens.
 Classic bag-tooltip fallback for raid trade timers and Timer staying open on
 Escape are included in alpha.46. All 13 local suites pass; native checks remain.
 
-- [ ] With alpha.50 on the holder and raid clients, verify a soulbound
+- [ ] With alpha.52 on the holder and raid clients, verify a soulbound
   raid drop with a visible trade timer shows a countdown in both Loot and Timer.
   Existing tracked copies should refresh from the holder's bag scan without
   another pickup or manual addition. Allow 20 seconds outside combat for a scan.
@@ -132,7 +177,7 @@ the regression check reproduces the blocked option clicks before this fix.
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.50**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.52**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.
