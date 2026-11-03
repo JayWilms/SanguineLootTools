@@ -183,6 +183,16 @@ function A:ConfirmBagHandover(entry,claim)
     return true
 end
 
+function A:HasPendingTradeAward(partner,holder)
+    if not partner then return false end
+    for _,entry in ipairs(self.state and self.state.trackedLoot or {}) do
+        local item=entry.item and self:ItemByID(entry.item)
+        if entry.holder==holder and entry.delivery~="delivered" and item
+            and item.status=="awarded" and item.winner==partner then return true end
+    end
+    return false
+end
+
 function A:ReduceLoot(sender, p)
     local s = self.state
     s.trackedLoot = s.trackedLoot or {}
@@ -219,11 +229,7 @@ function A:ReduceLoot(sender, p)
         if previous and p.seq <= previous.seq then return false, "Old trade activity." end
         local partner = p.active and self:Resolve(p.partner)
         if p.active then
-            local held = false
-            for _, entry in ipairs(s.trackedLoot) do
-                local item = entry.item and self:ItemByID(entry.item)
-                if entry.holder == sender and item and item.status == "awarded" and item.winner == partner and entry.delivery ~= "delivered" then held = true end
-            end
+            local held = self:HasPendingTradeAward(partner,sender)
             if not partner or not held then return false, "No pending award for this trade partner." end
         end
         s.tradeActivity[sender] = {seq = p.seq, active = p.active, partner = partner or nil, time = A.Client:ServerTime()}

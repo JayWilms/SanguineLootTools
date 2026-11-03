@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.49 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.50 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,7 +6,16 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.49, protocol 15. Commands use /slt.
+Everyone testing together should use alpha.50, protocol 15. Commands use /slt.
+
+NEW SINCE ALPHA.49
+- Receipt snapshots/reservations match item IDs across character-specific link
+  metadata. Exactly one new bag GUID remains required to verify receipt.
+- Duplicate automatic confirmations do not advance revisions or rebroadcast
+  unchanged state. Diagnostics show pending stages and duplicate counts.
+- Ordinary trades without pending awards no longer report loot activity.
+  Expired background requests are counted quietly; validation errors remain.
+- All fifteen local suites pass. Raid latency still needs native confirmation.
 
 NEW SINCE ALPHA.48
 - Automatic assignment handshakes use live-update priority without resending

@@ -34,6 +34,8 @@ function A:DiagnosticReport()
     local queued,age,bytes=self:NetworkQueueStats()
     lines[#lines+1]=string.format("Queue: %d fragments | %.1fs oldest | %d payload bytes",queued,age,bytes or 0)
     local metrics=self.networkMetrics or {}
+    lines[#lines+1]=string.format("Ignored background requests: %d expired assignments | %d unrelated trades",metrics.staleCorpseRequests or 0,metrics.irrelevantTradeReports or 0)
+    lines[#lines+1]=string.format("Duplicate assignment confirmations: %d without new broadcasts",metrics.duplicateCorpseRequests or 0)
     lines[#lines+1]=string.format("Queue peaks: %d fragments | %.1fs oldest | %d bytes | send failures %d | overflows %d",
         metrics.maxFragments or 0,metrics.maxAge or 0,metrics.maxBytes or 0,metrics.sendFailures or 0,metrics.overflows or 0)
     lines[#lines+1]="Last send result: "..technical(metrics.lastResult)
@@ -57,6 +59,19 @@ function A:DiagnosticReport()
     local claims=0
     for _,claim in pairs(self.lootHolderClaims or {}) do if self.Client:ServerTime()-claim.sampledAt<=90 then claims=claims+1 end end
     lines[#lines+1]=string.format("Holder handovers: %d confirmed | %d awaiting matching bag evidence",self.lootHandoverCount or 0,claims)
+    local ready,start,clear,receipt,expired,oldest=0,0,0,0,0,0
+    for _,route in pairs(self.state and self.state.corpseRoutes or {}) do
+        if not route.finished and not route.failed then
+            local age=math.max(0,self.Client:ServerTime()-(route.time or 0))
+            oldest=math.max(oldest,age)
+            if age>60 then expired=expired+1
+            elseif not route.ready then ready=ready+1
+            elseif not route.started then start=start+1
+            elseif not route.cleared then clear=clear+1
+            elseif not route.guid then receipt=receipt+1 end
+        end
+    end
+    lines[#lines+1]=string.format("Automatic assignments pending: %d recipient ready | %d start | %d corpse clear | %d bag receipt | %d expired | %ds oldest",ready,start,clear,receipt,expired,oldest)
     lines[#lines+1]="API presence (presence alone does not verify behaviour):"
     for _,api in ipairs(self.Client:APIInventory()) do lines[#lines+1]=api.name..": "..(api.available and "present" or "MISSING") end
     lines[#lines+1]="Recording: "..(self.diagnosticRecording and "on" or "off").." | latest 200 events, current login only"

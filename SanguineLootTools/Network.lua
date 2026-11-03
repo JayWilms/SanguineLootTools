@@ -416,6 +416,17 @@ function A:QueuePersonalReceipt(sender,item,response,request)
     end
 end
 
+function A:QuietBackgroundRejection(p,why)
+    local op=type(p)=="table" and p.op
+    local key
+    if type(op)=="string" and op:match("^corpse") and why=="Corpse assignment is stale or unavailable." then key="staleCorpseRequests"
+    elseif op=="tradeActivity" and why=="No pending award for this trade partner." then key="irrelevantTradeReports" end
+    if not key then return false end
+    self.networkMetrics=self.networkMetrics or {}
+    self.networkMetrics[key]=(self.networkMetrics[key] or 0)+1
+    return true
+end
+
 function A:HostRequest(sender, p)
     local responseRequest=type(p)=="table" and type(p.responseRequest)=="number" and p.responseRequest%1==0
         and p.responseRequest>=1 and p.responseRequest<=1000000000 and p.responseRequest or nil
@@ -429,11 +440,17 @@ function A:HostRequest(sender, p)
     end
     if type(p) == "table" and p.op == "tradeActivity" then p.activityHolder = sender end
     if type(p)=="table" and p.op=="lootReport" then p.reportHolder=sender end
-    local ok, why = self:Reduce(sender, p)
+    local ok, why, unchanged = self:Reduce(sender, p)
     if not ok then
+        if self:QuietBackgroundRejection(p,why) then return false end
         if sender == self.me then self:Print(why)
         else self:Send({kind = "error", message = why, responseRequest=type(p)=="table" and p.op=="respond" and responseRequest or nil}, sender) end
         return false
+    end
+    if unchanged==true and type(p.op)=="string" and p.op:match("^corpse") then
+        self.networkMetrics=self.networkMetrics or {}
+        self.networkMetrics.duplicateCorpseRequests=(self.networkMetrics.duplicateCorpseRequests or 0)+1
+        return true
     end
     self.rev = self.rev + 1
     if self.state and (self.raidSetupOperations[p.op] or p.op=="profile") and not self.demo then self:RememberRaidSettings(self.state) end

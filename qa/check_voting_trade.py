@@ -80,6 +80,24 @@ assert(A:UseCouncilAwardAction('Hozfir-WildGrowth'))
 assert(reviewed=='Hozfir-WildGrowth' and tradeCalls==0)
 ''')
 print('Unawarded candidate: original award-review action retained.')
+lua=setup()
+lua.execute('''
+local partner='Other-WildGrowth'
+local reports={}
+function A:TradePartner() return partner end
+function A:Act(op,data) assert(op=='tradeActivity');reports[#reports+1]=data end
+for i=1,20 do A:ReportTradeActivity(true) end
+assert(#reports==0,'ordinary trade generated loot activity reports')
+partner=item.winner
+A:ReportTradeActivity(true)
+assert(#reports==1 and reports[1].active)
+entry.delivery='delivered'
+A:ReportTradeActivity()
+assert(#reports==2 and reports[2].active==false)
+for i=1,20 do A:ReportTradeActivity(true) end
+assert(#reports==2,'completed delivery kept reporting active loot trade')
+''')
+print('Ordinary trades stay quiet; pending awards report activity and clear it once delivered.')
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)
 print('Voting trade-action and Lua 5.1 compilation checks passed. No installer generated.')

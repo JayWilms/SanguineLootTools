@@ -111,7 +111,7 @@ function A:ReduceLootConfiguration(sender,p)
         local rule=self:AutomaticLootRule(p.quality)
         if not rule or not self:EquipmentLink(p.link) or not int(p.slot,1,40) or type(p.source)~="string" or #p.source>100 or not p.source:match("^[%w%-]+$") then return false,"Invalid corpse item or quality rule." end
         local token=corpseToken(p.source,p.slot,p.link)
-        if s.corpseRoutes[token] then return true end
+        if s.corpseRoutes[token] then return true,nil,true end
         local total=0
         for key,route in pairs(s.corpseRoutes) do
             if (route.finished and not self:TrackedByGUID(route.guid)) or (not route.ready and self.Client:ServerTime()-route.time>60) then s.corpseRoutes[key]=nil else total=total+1 end
@@ -124,15 +124,21 @@ function A:ReduceLootConfiguration(sender,p)
     end
     local intent=type(p.token)=="string" and s.corpseRoutes[p.token]
     if not intent or (intent.revision~=(s.lootConfigRevision or 0) and not intent.started) or intent.failed or self.Client:ServerTime()-intent.time>60 then return false,"Corpse assignment is stale or unavailable." end
-    if intent.finished then return true end
+    if intent.finished then
+        if sender~=intent.by and sender~=intent.target then return false,"Only assignment participants can confirm this delivery." end
+        return true,nil,true
+    end
     if p.op=="corpseReady" then
         if sender~=intent.target then return false,"Only the recipient can verify their bag snapshot." end
+        if intent.ready then return true,nil,true end
         intent.ready=true
     elseif p.op=="corpseStarted" then
         if sender~=s.master or sender~=intent.by or s.masterBlocked or not intent.ready or intent.revision~=(s.lootConfigRevision or 0) or not self:LootConfiguration().automatic then return false,"Corpse routing rules or authority changed." end
+        if intent.started then return true,nil,true end
         intent.started=true
     elseif p.op=="corpseCleared" then
         if sender~=s.master or sender~=intent.by or s.masterBlocked or not intent.ready or not intent.started then return false,"Master Loot authority changed." end
+        if intent.cleared then return true,nil,true end
         intent.cleared=true
     elseif p.op=="corpseFailed" then
         if sender~=intent.by then return false,"Only the Master Looter can report this attempt." end
@@ -142,6 +148,7 @@ function A:ReduceLootConfiguration(sender,p)
             or p.link~=intent.link or self:TrackedByGUID(p.guid) or (s.retiredGUIDs and s.retiredGUIDs[p.guid]) then return false,"Invalid received bag copy." end
         if intent.guid and intent.guid~=p.guid then return false,"An assignment cannot receive two different copies." end
         for token,other in pairs(s.corpseRoutes) do if token~=p.token and other.guid==p.guid then return false,"This bag copy belongs to another assignment." end end
+        if intent.guid==p.guid then return true,nil,true end
         intent.guid=p.guid
     else return false,"Unknown loot configuration action." end
     if intent.cleared and intent.guid then
@@ -157,12 +164,16 @@ end
 -- Snapshots are local and short-lived; the recipient proves the *new* copy, not an old identical bag item.
 function A:CorpseBagSnapshot(link)
     if not C_Container then return end
+    local expected=self:EquipmentLink(link)
+    local itemID=expected and expected:match("item:(%d+)")
+    if not itemID then return end
     local result={}
     for bag=0,math.min(NUM_BAG_SLOTS or 4,5) do
         local n=call(C_Container.GetContainerNumSlots,bag);if not int(n,0,100) then return end
         for slot=1,n do
             local info=call(C_Container.GetContainerItemInfo,bag,slot)
-            if type(info)=="table" and self:EquipmentLink(info.hyperlink)==link then
+            local bagLink=type(info)=="table" and self:EquipmentLink(info.hyperlink)
+            if bagLink and bagLink:match("item:(%d+)")==itemID then
                 if info.stackCount~=nil and info.stackCount~=1 then return end
                 local sample=self:ReadManualBagItem(bag,slot);if not sample then return end
                 result[sample.guid]=true
@@ -172,8 +183,9 @@ function A:CorpseBagSnapshot(link)
     return result
 end
 function A:CorpseReservation(guid,link)
+    local itemID=type(link)=="string" and link:match("item:(%d+)")
     for token,intent in pairs(self.state and self.state.corpseRoutes or {}) do
-        if intent.target==self.me and intent.link==link and not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
+        if itemID and intent.target==self.me and intent.link:match("item:(%d+)")==itemID and not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
             local snapshot=self.corpseSnapshots and self.corpseSnapshots[token]
             if snapshot and not snapshot[guid] then return true end
         end
@@ -201,7 +213,7 @@ function A:SendCorpseAction(op,data,key)
     local sent=self.corpseActions[id]
     if sent and now>=sent and now-sent<5 then return end
     self.corpseActions[id]=now
-    if self:Act(op,data)==false then self.corpseActions[id]=nil end
+    self:Act(op,data)
 end
 function A:TickLootConfiguration()
     local s=self.state;if not s or self.demo or not self.Client:InRaid() then return end
@@ -212,7 +224,8 @@ function A:TickLootConfiguration()
     end
     for id in pairs(self.routeAttempts) do if not self:TrackedByID(id) then self.routeAttempts[id]=nil end end
     for token,intent in pairs(s.corpseRoutes or {}) do
-        if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60 then
+        if not intent.finished and not intent.failed and self.Client:ServerTime()-intent.time<=60
+            and (intent.started or intent.revision==(s.lootConfigRevision or 0)) then
             if intent.target==self.me then
                 if not self.corpseSnapshots[token] then
                     local snapshot=self:CorpseBagSnapshot(intent.link)

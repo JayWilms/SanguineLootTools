@@ -109,6 +109,51 @@ assert(gives==1 and #A.state.items==1)
 ''')
 print('Multiple boss drops: stable/retained/compacted slots, distinct copies, receipt gate and failed assignments passed.')
 
+for name in ['Equipment','Loot']:
+    lua.execute((root/'SanguineLootTools'/f'{name}.lua').read_text(encoding='utf-8'),
+                'SanguineLootTools',lua.globals().A)
+lua.execute('''
+-- Real hyperlinks differ across characters. Existing copies must be in the
+-- baseline and the newly received GUID must remain reserved from normal scans.
+local sourceLink='|cff0070dd|Hitem:209578::::::::25:::::::::|h[Glowing Leather Bands]|h|r'
+local bagLink='|cff0070dd|Hitem:209578::::::::60:::::::::|h[Glowing Leather Bands]|h|r'
+local bags={{guid='Item-Old-Bands',link=bagLink}}
+NUM_BAG_SLOTS=0
+C_Container={GetContainerNumSlots=function() return 4 end,
+    GetContainerItemInfo=function(bag,slot)
+        local item=bags[slot]
+        if item then return {hyperlink=item.link,stackCount=1,isLocked=false} end
+    end}
+ItemLocation={CreateFromBagAndSlot=function(_,bag,slot) return {slot=slot} end}
+C_Item={GetItemGUID=function(location) return bags[location.slot].guid end,IsBound=function() return true end}
+local route={token='route',source='Creature-Boss',slot=1,link=sourceLink,quality=3,target='Bank-Realm',
+    revision=0,by='Master-Realm',time=100,reason='Guild Bank'}
+A.me='Bank-Realm';A.corpseSID=nil
+A.state={id='recipient-links',master='Master-Realm',items={},trackedLoot={},corpseRoutes={route=route}}
+A.state.lootConfiguration=A:DefaultLootConfiguration();A.state.lootConfiguration.automatic=true
+A.roster={['Bank-Realm']='player'}
+function A:IsMaster() return false end
+A:TickLootConfiguration()
+assert(route.ready and A.corpseSnapshots.route['Item-Old-Bands'])
+assert(A:ReduceLootConfiguration('Master-Realm',{op='corpseStarted',token='route'}))
+assert(A:ReduceLootConfiguration('Master-Realm',{op='corpseCleared',token='route'}))
+bags[2]={guid='Item-New-Bands',link=bagLink}
+assert(A:CorpseReservation('Item-New-Bands',bagLink))
+assert(not A:CorpseReservation('Item-Old-Bands',bagLink))
+A:TickLootConfiguration()
+assert(route.finished and route.guid=='Item-New-Bands' and #A.state.items==1)
+assert(not A:CorpseReservation('Item-New-Bands',bagLink))
+-- Multiple new copies are ambiguous: item ID matching must not invent proof.
+route.finished,route.guid=nil,nil
+A.state.items={};A.state.trackedLoot={}
+bags[3]={guid='Item-Another-Bands',link=bagLink}
+A.corpseSnapshots.route={['Item-Old-Bands']=true}
+A:TickLootConfiguration()
+assert(not route.guid and not route.finished and #A.state.items==0)
+A.me='Master-Realm'
+''')
+print('Actual cross-character hyperlinks: old-copy baseline, reserved fresh GUID, verified receipt and ambiguous copies passed.')
+
 lua.execute('''
 local now,count=0,0
 function A.Client:ServerTime() return now end
@@ -128,7 +173,9 @@ local reject=true
 function A:Act() count=count+1;if reject then reject=false;return false end;return true end
 A:SendCorpseAction('corpseStarted',{token='other'})
 A:SendCorpseAction('corpseStarted',{token='other'})
-assert(count==8,'failed queue blocked a valid retry')
+assert(count==7,'a rejected background action retried on the next tick')
+now=25;A:SendCorpseAction('corpseStarted',{token='other'})
+assert(count==8,'bounded retry did not recover')
 function CreateFrame() return {RegisterEvent=function() end,SetScript=function() end} end
 ''')
 lua.execute((root/'SanguineLootTools/Network.lua').read_text(encoding='utf-8'),
@@ -150,5 +197,56 @@ for _,op in ipairs({'corpsePrepare','corpseReady','corpseStarted','corpseCleared
     A:Publish({op=op})
 end
 assert(sent==6 and privateCount==0,'corpse handshakes resent unrelated private ballot views')
+function A:IsLeader() return true end
+function A:SyncGameMaster() end
+local printed,errors=0,0
+function A:Print() printed=printed+1 end
+function A:Send(packet) assert(packet.kind=='error');errors=errors+1 end
+local why='Corpse assignment is stale or unavailable.'
+function A:Reduce() return false,why end
+for i=1,20 do
+    A:HostRequest(A.me,{op='corpseReceipt'})
+    A:HostRequest('Bank-Realm',{op='corpseReady'})
+end
+why='No pending award for this trade partner.'
+A:HostRequest(A.me,{op='tradeActivity'})
+A:HostRequest('Bank-Realm',{op='tradeActivity'})
+assert(printed==0 and errors==0)
+assert(A.networkMetrics.staleCorpseRequests==40 and A.networkMetrics.irrelevantTradeReports==2)
+why='Invalid received bag copy.'
+A:HostRequest(A.me,{op='corpseReceipt'})
+A:HostRequest('Bank-Realm',{op='corpseReceipt'})
+assert(printed==1 and errors==1,'real validation errors were hidden')
 ''')
 print('Bounded confirmation retries, session reset, failed queue recovery and prioritised public handshakes without private fan-out passed.')
+
+lua.execute('''
+-- Repeated confirmations while broadcasts are delayed must not create more
+-- revisions/broadcasts behind that same backlog. Use the real reducer/host.
+A.me='Master-Realm';A.rev=100
+function A.Client:ServerTime() return 100 end
+A.state={id='idempotence',master=A.me,items={},trackedLoot={},corpseRoutes={},lootConfigRevision=0,
+    lootConfiguration=A:DefaultLootConfiguration()}
+A.state.lootConfiguration.automatic=true
+A.state.lootConfiguration.rules[4]={action='assign',target='Bank-Realm',reason='Guild Bank',note=''}
+A.roster={['Bank-Realm']='raid2'}
+function A:Reduce(sender,p) return self:ReduceLootConfiguration(sender,p) end
+function A:Send() error('duplicate confirmation emitted another packet') end
+function A:Publish() error('duplicate confirmation republished state') end
+function A:Changed() error('duplicate confirmation advanced state') end
+local link='|cff0070dd|Hitem:209578::::::::25:::::::::|h[Glowing Leather Bands]|h|r'
+local token='Creature-Boss:1:209578'
+A.state.corpseRoutes[token]={token=token,target='Bank-Realm',by=A.me,link=link,revision=0,
+    time=100,ready=true,started=true,cleared=true}
+for i=1,20 do
+    assert(A:HostRequest('Bank-Realm',{op='corpseReady',token=token}))
+    assert(A:HostRequest(A.me,{op='corpseStarted',token=token}))
+    assert(A:HostRequest(A.me,{op='corpseCleared',token=token}))
+    assert(A:HostRequest(A.me,{op='corpsePrepare',source='Creature-Boss',slot=1,quality=3,link=link}))
+end
+assert(A.rev==100 and A.networkMetrics.duplicateCorpseRequests==80)
+A.state.corpseRoutes[token].finished=true
+assert(A:HostRequest('Bank-Realm',{op='corpseReceipt',token=token,guid='Item-New',link=link}))
+assert(A.rev==100 and A.networkMetrics.duplicateCorpseRequests==81)
+''')
+print('Delayed-state duplicate confirmations do not amplify the queue or advance revisions.')

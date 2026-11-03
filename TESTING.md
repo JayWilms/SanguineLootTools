@@ -1,4 +1,42 @@
-# Alpha.49 raid testing checklist
+# Alpha.50 raid testing checklist
+
+## Alpha.50 receipt hyperlinks and duplicate confirmations
+
+Corpse bag snapshots and pickup reservations now compare base item IDs, since
+the boss and recipient can have different hyperlink metadata. The pre-delivery
+GUID snapshot and exactly one new GUID remain required for receipt proof.
+Diagnostics now count assignments waiting for readiness, start, corpse clear,
+bag receipt or expiration. All 15 local suites pass, including actual hyperlink
+shapes with different character-level fields and ambiguous-copy rejection.
+Repeated confirmations that do not change an assignment no longer increment the
+shared revision or queue another state broadcast. Diagnostics count these
+duplicates so the outgoing backlog can be assessed during a reproduction.
+
+- [ ] With alpha.50 on all participants, route two different blue drops
+  to a player of a different level. Time the gap and verify the first receipt
+  completes while the route is active, rather than advancing after expiration.
+- [ ] Repeat with an old identical item already in the recipient's bags. The
+  delivered award must reference the new copy; no duplicate pickup row should
+  be created while the automatic receipt is pending.
+- [ ] If delayed, capture diagnostics during the pause from the Master Looter,
+  leader and recipient, including the new Automatic assignments pending line.
+
+## Alpha.50 background chat spam
+
+Ordinary trades no longer report active loot delivery without a pending held
+award. Expired corpse requests and no-longer-relevant trade reports are rejected
+quietly and counted in diagnostics; other validation errors remain visible.
+Rejected automatic actions retain their retry cooldown, and unstarted routes
+from an older configuration stop sending readiness/receipt requests.
+
+- [ ] Open ordinary trades with several raid members, including after a loot
+  delivery. No repeated No pending award messages should appear.
+- [ ] Let an automatic route expire or change its configuration during setup.
+  Delayed requests must not spam chat or award an item twice. Inspect the
+  Ignored background requests counters on the leader's diagnostic report.
+- [ ] Verify a pending award still reports In trade, clears after close/delivery,
+  and genuine validation failures remain visible. All 15 local suites pass;
+  native interaction still needs confirmation.
 
 ## Alpha.49 automatic assignment latency
 
@@ -56,7 +94,7 @@ headings and vote summaries above the background when the window reopens.
 Classic bag-tooltip fallback for raid trade timers and Timer staying open on
 Escape are included in alpha.46. All 13 local suites pass; native checks remain.
 
-- [ ] With alpha.49 on the holder and raid clients, verify a soulbound
+- [ ] With alpha.50 on the holder and raid clients, verify a soulbound
   raid drop with a visible trade timer shows a countdown in both Loot and Timer.
   Existing tracked copies should refresh from the holder's bag scan without
   another pickup or manual addition. Allow 20 seconds outside combat for a scan.
@@ -94,7 +132,7 @@ the regression check reproduces the blocked option clicks before this fix.
 
 All 12 local regression suites pass. Native layout and mouse interaction still need in-game confirmation.
 
-Everyone testing together should use **0.12.0-alpha.49**, protocol **15**.
+Everyone testing together should use **0.12.0-alpha.50**, protocol **15**.
 Local simulations passed; the following checks still need in-game confirmation.
 
 - [ ] Exit WoW, replace the SanguineLootTools folder, restart and confirm versions with `/slt check`.

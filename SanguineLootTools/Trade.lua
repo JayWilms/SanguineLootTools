@@ -252,6 +252,7 @@ function A:ReportTradeActivity(force)
     if self.demo then return end
     if not self.state then return end
     local partner = self:TradePartner()
+    if not self:HasPendingTradeAward(partner,self.me) then partner=nil end
     if not force and partner == self.lastReportedPartner and A.Client:Uptime() < (self.nextTradeReport or 0) then return end
     if not partner and not self.lastReportedPartner then return end
     self.tradeSequence = math.max(self.tradeSequence or 0, ((self.state.tradeActivity or {})[self.me] or {}).seq or 0) + 1
