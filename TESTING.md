@@ -1,3 +1,10 @@
+## Unreleased: green History exclusion
+
+- Existing green-quality awards are removed from retained History on storage initialization.
+- Award green equipment/materials by council and automatic assignment; neither should use History capacity.
+- Confirm blue/epic awards remain, including when 500 records are retained.
+- Active loot, delivery and archiving must continue normally for green items.
+
 ## Unreleased: History filters
 
 - Search History by partial player name or item name (case insensitive).

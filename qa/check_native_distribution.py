@@ -206,7 +206,7 @@ result.quantity=result.quantity+1
 assert(not A:ReduceNativeReceipt('Master-Realm',result),'conflicting receipt accepted')
 function A:Record(item) self:UpsertAward(item) end
 for _,item in ipairs(A.state.items) do A:Record(item) end
-assert(#SanguineLootCouncilDB.history==5)
+assert(#SanguineLootCouncilDB.history==2) -- Three green materials do not consume History capacity.
 for _,record in ipairs(SanguineLootCouncilDB.history) do
     assert(record.quantity and record.delivery.method=='masterloot_native')
 end

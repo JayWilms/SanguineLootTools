@@ -27,3 +27,33 @@ assert(#SanguineLootCouncilDB.history==3)
 for p in (root/'SanguineLootTools').glob('*.lua'):
     lua.execute('assert(load(...))',p.read_text())
 print('History search, exact linked item IDs, dates, personal rewards, focus guards and Lua syntax pass.')
+
+# Retained greens are pruned before the capacity limit is enforced. Unknown
+# quality stays intact; a cold-cache standard green link is still removable.
+lua.execute((root/'SanguineLootTools/Awards.lua').read_text(),'SanguineLootTools',lua.globals().A)
+lua.execute('''
+A.Copy=function(v) return v end
+A.InitStorage=function() A:PruneGreenHistory() end
+A.AwardSnapshot=function(_,item) return {winner=item.winner,time=item.id} end
+A.state={id='session',master='Master-Realm'}
+SanguineLootCouncilDB.history={
+ {key='old-green',item='|cff1eff00|Hitem:1|h[Green]|h|r'},
+ {key='explicit-green',item='item:2',quality=2},
+ {key='blue',item='item:3',quality=3},
+ {key='unknown',item='item:4'} }
+A:PruneGreenHistory()
+assert(#SanguineLootCouncilDB.history==2)
+for _,r in ipairs(SanguineLootCouncilDB.history) do assert(r.key=='blue' or r.key=='unknown') end
+SanguineLootCouncilDB.history={}
+for i=1,500 do SanguineLootCouncilDB.history[i]={key='blue:'..i,item='item:3',quality=3,time=i} end
+A:UpsertAward({id=501,link='item:2',quality=2,winner='Zergul-Realm'})
+assert(#SanguineLootCouncilDB.history==500 and SanguineLootCouncilDB.history[1].key=='blue:1')
+A.TrackedForItem=function() return {quality=2} end
+A:UpsertAward({id=502,link='item:2',winner='Moon-Realm'})
+assert(#SanguineLootCouncilDB.history==500)
+A.TrackedForItem=nil
+A:UpsertAward({id=503,link='item:3',quality=3,winner='Moon-Realm'})
+assert(#SanguineLootCouncilDB.history==500 and SanguineLootCouncilDB.history[1].key=='session:503')
+assert(SanguineLootCouncilDB.history[1].quality==3)
+''')
+print('Existing greens removed; new greens preserve all 500 slots; blue awards retain normal capacity behavior.')

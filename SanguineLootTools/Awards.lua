@@ -1,5 +1,25 @@
 local _, A = ...
 
+function A:HistoryItemQuality(link, quality)
+    if type(quality)=="number" then return quality end
+    if self.ItemDetails then
+        local details=self:ItemDetails({link=link})
+        if details and type(details.quality)=="number" then return details.quality end
+    end
+    -- Existing records have no quality field. Standard green links remain
+    -- identifiable even when the client item cache is cold.
+    if type(link)=="string" and link:lower():match("^|cff1eff00|hitem:") then return 2 end
+end
+
+function A:PruneGreenHistory()
+    local history=SanguineLootCouncilDB and SanguineLootCouncilDB.history
+    if type(history)~="table" then return end
+    for i=#history,1,-1 do
+        local record=history[i]
+        if self:HistoryItemQuality(record.item,record.quality)==2 then table.remove(history,i) end
+    end
+end
+
 function A:AwardSnapshot(item)
     local totals = self:BallotTotals(item)
     local response = item.responses[item.winner]
@@ -55,6 +75,10 @@ function A:UpsertAward(item)
     local s = self.state
     if self.demo or not s or not item.winner then return end
     self:InitStorage()
+    self:PruneGreenHistory()
+    local tracked=self.TrackedForItem and self:TrackedForItem(item)
+    local quality=self:HistoryItemQuality(item.link,item.quality or (tracked and tracked.quality))
+    if quality==2 then return end
     local key, revision = (s.historyID or s.id) .. ":" .. item.id, item.awardRevision or 1
     local history, index = SanguineLootCouncilDB.history
     for i, record in ipairs(history) do
@@ -66,6 +90,7 @@ function A:UpsertAward(item)
     local record = self:AwardSnapshot(item)
     record.delivery, record.deliveryRevision = self.Copy(item.delivery), item.delivery and item.delivery.revision or 0
     record.key, record.item, record.revision = key, item.link, revision
+    record.quality=quality
     record.quantity=item.quantity
     record.original = self.Copy(item.originalAward or record)
     record.corrections = self.Copy(item.corrections or {})

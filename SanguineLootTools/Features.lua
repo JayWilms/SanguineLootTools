@@ -16,6 +16,7 @@ function A:InitStorage()
     db.schemaVersion=2
     db.lootConfiguration=self:CleanLootConfiguration(db.lootConfiguration) or self:DefaultLootConfiguration()
     db.history, db.profiles, db.checkpoints = db.history or {}, db.profiles or {}, db.checkpoints or {}
+    if self.PruneGreenHistory then self:PruneGreenHistory() end
     if not self:ValidResponseDuration(db.responseDuration) then db.responseDuration = 60 end
     db.warningSettings=self:CleanWarningSettings(db.warningSettings) or self:DefaultWarningSettings()
     if type(db.tradeWarningSeen)~="table" then db.tradeWarningSeen={} end
