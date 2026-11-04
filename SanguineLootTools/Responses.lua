@@ -114,7 +114,6 @@ end
 function A:RenderResponseTimer()
     if not self.ui then return end
     local u, item = self.ui, self.state and self:ItemByID(self.popupItem or 0)
-    self:RenderNetworkStatus()
     local noteBytes=u.note and #u.note:GetText() or 0
     if u.noteBytes then
         u.noteBytes:SetText(noteBytes.."/100")
@@ -126,11 +125,7 @@ function A:RenderResponseTimer()
     u.responseBar:SetMinMaxValues(0, timed and item.responseDuration or 1)
     u.responseBar:SetValue(remaining)
     if not item then
-        local received,total=self:IncomingProgress()
-        if received then
-            u.responseBar:SetMinMaxValues(0,total);u.responseBar:SetValue(received)
-            u.responseCountdown:SetText("Receiving loot data: "..math.floor(received*100/total).."%")
-        else u.responseCountdown:SetText("Waiting for loot") end
+        u.responseCountdown:SetText("Waiting for loot")
     elseif item.status ~= "open" then
         u.responseCountdown:SetText(item.responseCloseReason == "timer" and "0s — response time expired" or "Responses closed")
     elseif timed then

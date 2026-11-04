@@ -1,3 +1,31 @@
+## Alpha.60: Quiet loot transfers
+
+- Routine loot transfers no longer open a loading popup or display fragment counters in Voting/Responses. Empty response windows retain their normal waiting message; the timer is reserved for response deadlines.
+- Test receiving a large loot batch before a session snapshot arrives and during an active round. Windows should update when complete without transfer progress appearing. Responses, votes and loot timers must still work.
+- History Sync retains its progress, completion and failure messages. Actionable communication failures remain visible; transport metrics remain available in Diagnostics.
+
+## Alpha.60: Compact Settings context
+
+- Normal footer guidance is removed. The slim top bar says Editing Saved Raid Setup while idle, Active Session followed by your role while live, or the applicable test mode. Display says Personal Display Settings.
+- View-only guidance appears only on shared raid tabs when the viewer cannot edit them. Responses explicitly keeps personal colours editable. Council/profile/response lock notices remain when those settings are locked by active rounds.
+- Display and Advanced never show a blanket raid-settings permission warning. Switching tabs updates the notice immediately.
+- Check normal/view-only/locked states at all supported Settings sizes. Content and the Responses preview reclaim the slimmed header and unused footer space without overlapping any notice or sidebar logo.
+
+## Alpha.60: Display tab and Response Timing
+
+- Display contains Lock Window Positions, Reset All Windows, Reset One Window (select a primary window then Reset Window) and Loot Window Auto-Open. Settings, Loot, Timer, Voting, Responses, History and Version Check windows can be reset individually.
+- Resetting one window must preserve every other window's geometry and all lock/auto-open preferences. Test the Settings window resetting itself, locked windows, missing choices, different screen sizes and repeated resets.
+- Loot Window Auto-Open is now personal per character and editable by every role. It migrates the old opening choice once; profile loads and raid configuration updates must not override it. It still respects existing Loot access rules and new-item discovery behavior.
+- Responses starts with a collapsible Response Timing section above Raid Response Choices. Personal response colours and the docked preview stay in Responses. Timer permissions, defaults and apply behavior are unchanged.
+- Session now contains session controls and pre-raid checks. Check all eight tabs, the sidebar logo at minimum/default/maximum window sizes, expanded/collapsed Responses sections and preview docking.
+
+## Alpha.60: History select/deselect toggle
+
+- All Players is removed. My Rewards and Guild Bank still provide their Back to All Rewards return actions.
+- Select All Shown selects the current filtered records and changes to Deselect All. Clicking again clears selection while keeping delete mode open; Cancel still exits the mode.
+- Manually selecting the last unselected shown row switches the label to Deselect All. Unselecting any row switches it back to Select All Shown.
+- Test empty results, partial selection, repeated toggles, search/scope changes and confirmation cancellation. Deselecting alone must not delete or alter records.
+
 ## Alpha.59: Quality Rules replace the minimum threshold
 
 - Minimum Quality for Council Loot is removed. Each quality's Ignore, Collect for council or Auto-award to recipient rule is now authoritative; old minimum values are ignored when loading saved configuration/profiles.

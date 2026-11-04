@@ -19,11 +19,9 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
     switch(u.lootPanels.timer.auto)
     u.lootPanels.timer.auto:SetScript("OnClick",function() local c=A:LootConfiguration();c.collection=not c.collection;A:SaveLootConfiguration(c) end)
     row(collection,"Automatic Collection","Follow the Quality Rules below to collect eligible loot. Council items go to the Master Looter for voting.",0,u.lootPanels.timer.auto,76)
-    u.lootOpen=button(collection,"",0,0,76,function() local c=A:LootConfiguration();c.openWindow=not c.openWindow;A:SaveLootConfiguration(c) end);switch(u.lootOpen)
-    row(collection,"Open Loot on discovery","Open the Loot window when new items arrive. Tracking continues when disabled.",144,u.lootOpen,76)
     u.lootAutomatic=button(collection,"",0,0,76,function() local c=A:LootConfiguration();c.automatic=not c.automatic;A:SaveLootConfiguration(c) end);switch(u.lootAutomatic)
     row(collection,"Automatic Awards","Items set to Auto-award to recipient go straight to that player, without a council vote. Set a recipient and reason first.",72,u.lootAutomatic,76)
-    u.lootRoutingStatus=text(collection,"",11,0,-213,690);position(u.lootRoutingStatus,collection,0,213,function(w) return w end,44);u.lootRoutingStatus:Hide()
+    u.lootRoutingStatus=text(collection,"",11,0,-141,690);position(u.lootRoutingStatus,collection,0,141,function(w) return w end,44);u.lootRoutingStatus:Hide()
     local rules=group("rules","Quality Rules • Raid Leader Only")
     u.lootQualityRows={}
     for i=1,6 do
@@ -80,7 +78,7 @@ function A:LayoutLootConfiguration()
     local function at(o,x,top,w,h) o:ClearAllPoints();o:SetPoint("TOPLEFT",x,-top);o:SetSize(w,h) end
     for _,key in ipairs({"collection","rules"}) do
         local g=u.lootConfigGroups[key];local open=u.lootConfigOpen[key]
-        local height=key=="collection" and (u.lootRoutingStatus:IsShown() and 263 or 204) or 630
+        local height=key=="collection" and (u.lootRoutingStatus:IsShown() and 191 or 132) or 630
         at(g.header,0,y,body,36);at(g.arrow,body-35,1,34,34);g.title:SetWidth(body-55)
         self:SetRailArrowDirection(g.arrow,open and -1 or 1)
         at(g.body,0,y+46,body,height);g.body:SetShown(open);y=y+46+(open and height+16 or 0)
@@ -98,7 +96,6 @@ end
 function A:RenderLootConfigurationUI()
     local u=self.ui;if not u or not u.lootConfigGroups then return end
     local c=self:LootConfiguration();local editable=self:CanConfigureRaid()
-    self:SetSettingsToggle(u.lootOpen,c.openWindow);u.lootOpen:SetEnabled(editable)
     self:SetSettingsToggle(u.lootAutomatic,c.automatic);u.lootAutomatic:SetEnabled(editable)
     local pending,failed=0,0
     for _,intent in pairs(self.state and self.state.corpseRoutes or {}) do

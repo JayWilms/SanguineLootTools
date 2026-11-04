@@ -24,6 +24,7 @@ checks = [
     'check_pickups.py',
     'check_reason_dropdown.py',
     'check_quality_rules.py',
+    'check_display_preferences.py',
     'check_alpha36.py',
 ]
 for name in checks:

@@ -163,7 +163,7 @@ function A:RenderLootWindows()
     for _,entry in ipairs(s.trackedLoot or {}) do
         if not self:IsCompletedUtilityAssignment(entry) then newest=math.max(newest,entry.id) end
     end
-    if newest>(panel.discoveryID or 0) and self:LootConfiguration().openWindow
+    if newest>(panel.discoveryID or 0) and self:LootWindowAutoOpen()
         and (not self.ui.itemTools or not self.ui.itemTools:IsShown()) then panel.window:Show() end
     panel.discoveryID=newest
     local rows={}

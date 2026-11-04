@@ -212,30 +212,6 @@ function A:NetworkQueueStats()
     return count,oldest,bytes
 end
 
-function A:IncomingProgress()
-    local selected
-    for _,batch in pairs(incoming) do
-        if not batch.history and batch.sender==self.leader and batch.received<batch.count and batch.count>1
-            and (not selected or batch.time>selected.time) then selected=batch end
-    end
-    if selected then return selected.received,selected.count end
-end
-function A:RenderNetworkStatus()
-    if not self.ui then return end
-    local queued,age=self:NetworkQueueStats()
-    local received,total=self:IncomingProgress()
-    local message=received and ("Receiving loot data: "..math.floor(received*100/total).."% ("..received.."/"..total..")")
-        or (queued>0 and (queued.." network fragments queued | oldest "..math.floor(age).."s") or "")
-    if self.ui.receiving then
-        if received and not self.state then
-            self.ui.receivingText:SetText(message)
-            if not self.hiddenTransferProgress then self.ui.receiving:Show() end
-        else self.ui.receiving:Hide() end
-    end
-    if queued>0 and A.Client:Combat() then message="Combat: communications paused | "..message end
-    for _,key in ipairs({"popupNetwork","networkStatus"}) do if self.ui[key] then self.ui[key]:SetText(message) end end
-end
-
 function A:PumpSender()
     if self:IsSoloTest() or not self.Client:InGroup() then queue={};return end
     -- Target Forever restrictions still need native verification. Until then,
@@ -659,12 +635,6 @@ function A:Receive(prefix, message, channel, rawSender)
     b.parts[index], b.received = chunk, b.received + 1
     b.time=A.Client:Uptime() -- expire stalled transfers, not slowly progressing ones
     if historyPeer and self.historySync then self.historySync.activity=b.time;self.historySync.waitSince=b.time end
-    if sender==self.leader and count>1 and not historyPeer then
-        if not b.prompted and not self.state then
-            b.prompted=true;self.hiddenTransferProgress=nil;self:BuildUI()
-        end
-        self:RenderNetworkStatus()
-    end
     self.networkMetrics=self.networkMetrics or {}
     self.networkMetrics.receivedFragments=(self.networkMetrics.receivedFragments or 0)+1
     if b.received == count then
@@ -744,7 +714,7 @@ frame:SetScript("OnUpdate", function(_, dt)
         A:TickWarnings()
         if A.TickHistorySync then A:TickHistorySync() end
         A:TickResponseEligibility()
-        A:RenderNetworkStatus()
+        A:NetworkQueueStats() -- retain transport metrics for Diagnostics only
         if A.ui and (A.ui.main:IsShown() or A.ui.voting:IsShown()) then A:RenderVotingStatus() end
     end
     if elapsed >= 0.10 then

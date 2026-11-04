@@ -80,8 +80,6 @@ function A:SelectResponseItem(id)
 end
 
 function A:ResponseEmptyMessage(hidden)
-    local received,total=self:IncomingProgress()
-    if received and (not self.state or #self.state.items==0) then return "Receiving loot data… "..math.floor(received*100/total).."%" end
     if not self.state then return "No active session" end
     if (hidden or 0)>0 then return "No class-eligible items open" end
     if #self.state.items==0 then return "No loot queued" end

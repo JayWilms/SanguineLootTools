@@ -61,6 +61,35 @@ def run(peers,start=0,limit=3000,drop=None):
                 return tick+1
     raise AssertionError('sync did not finish within simulation bound')
 
+# Incomplete ordinary snapshots stay silent; only explicit History Sync shows progress.
+quiet=peer('Moon-Realm',['Zergul-Realm','Moon-Realm'])
+for module in ['Responses','RaiderUI']:
+    quiet.execute((SRC/(module+'.lua')).read_text(),'SanguineLootTools',quiet.globals().A)
+quiet.execute('''
+A.state=nil
+function A:BuildUI() error('Partial loot transfer opened UI') end
+A:Receive('SanguineLC','123:1:3:partial','RAID','Zergul-Realm')
+assert(A.networkMetrics.receivedFragments==1)
+assert(A:ResponseEmptyMessage()=="No active session")
+local function widget()
+ return {SetText=function(self,v) self.text=v end,SetEnabled=function(self,v) self.enabled=v end,
+ SetMinMaxValues=function() end,SetValue=function(self,v) self.value=v end,SetStatusBarColor=function() end}
+end
+A.ui={responseBar=widget(),responseCountdown=widget(),responseButtons={},historySync=widget(),historySyncStatus=widget()}
+function A.Client:ClockReady() return true end
+A:RenderResponseTimer()
+assert(A.ui.responseCountdown.text=='Waiting for loot' and A.ui.responseBar.value==0)
+A.state={items={}}
+assert(A:ResponseEmptyMessage()=='No loot queued')
+A.historySync={}
+A:HistorySyncStatus('Collecting History: 1/2')
+assert(A.ui.historySync.text=='Syncing…' and A.ui.historySyncStatus.text=='Collecting History: 1/2')
+assert(A.ui.historySync.enabled==false)
+A.historySync=nil
+A:HistorySyncStatus('History sync complete')
+assert(A.ui.historySync.text=='Sync History' and A.ui.historySyncStatus.text=='History sync complete')
+''')
+
 names=['Zergul-Realm','Moon-Realm','Absent-Realm','Council-Realm']
 peers={name:peer(name,names) for name in names}
 peers[names[0]].execute('''

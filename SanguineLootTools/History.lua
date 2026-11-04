@@ -269,10 +269,23 @@ function A:ClickHistoryRecord(record)
     self.historyDeleteSelection[record.key]=not self.historyDeleteSelection[record.key] or nil
     self:RefreshHistorySelection()
 end
+function A:AllShownHistorySelected()
+    local count=0
+    for _,record in ipairs(self.historyVisibleRecords or {}) do
+        if type(record.key)=="string" then
+            count=count+1
+            if not (self.historyDeleteSelection or {})[record.key] then return false end
+        end
+    end
+    return count>0
+end
 function A:SelectShownHistory()
     if not self.historyDeleteMode then return end
-    for _,record in ipairs(self.historyVisibleRecords or {}) do
-        if type(record.key)=="string" then self.historyDeleteSelection[record.key]=true end
+    if self:AllShownHistorySelected() then self.historyDeleteSelection={}
+    else
+        for _,record in ipairs(self.historyVisibleRecords or {}) do
+            if type(record.key)=="string" then self.historyDeleteSelection[record.key]=true end
+        end
     end
     self:RefreshHistorySelection()
 end
@@ -287,6 +300,7 @@ function A:RenderHistoryDeletion(records,viewKey)
     local count=self:HistoryDeleteCount()
     u.historyDelete:SetText(self.historyDeleteMode and ("Delete Selected ("..count..")") or "Delete History")
     u.historyDelete:SetEnabled(not self.historySync and (not self.historyDeleteMode or count>0))
+    u.historySelectAll:SetText(self:AllShownHistorySelected() and "Deselect All" or "Select All Shown")
     u.historySelectAll:SetShown(self.historyDeleteMode==true)
     u.historySelectAll:SetEnabled(#records>0)
     u.historyDeleteCancel:SetShown(self.historyDeleteMode==true)

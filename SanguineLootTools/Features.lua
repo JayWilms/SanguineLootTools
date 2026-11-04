@@ -324,3 +324,24 @@ function A:FeaturePacket(sender, p)
     end
     return false
 end
+
+-- Display choices stay per-character and are never part of raid profiles/state.
+function A:DisplayPreferences()
+    self:InitStorage()
+    local db=SanguineLootCouncilDB
+    if type(db.displayPreferences)~="table" then db.displayPreferences={} end
+    local character=self.me or "local"
+    if type(db.displayPreferences[character])~="table" then db.displayPreferences[character]={} end
+    local prefs=db.displayPreferences[character]
+    if type(prefs.lootAutoOpen)~="boolean" then
+        prefs.lootAutoOpen=self:LootConfiguration().openWindow==true
+    end
+    return prefs
+end
+function A:LootWindowAutoOpen()
+    return self:DisplayPreferences().lootAutoOpen
+end
+function A:SetLootWindowAutoOpen(enabled)
+    self:DisplayPreferences().lootAutoOpen=enabled==true
+    if self.RenderSettings then self:RenderSettings() end
+end

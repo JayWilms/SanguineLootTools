@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.59 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.60 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,25 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.59, protocol 17. Commands use /slt.
+Everyone testing together should use alpha.60, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.59
+- Routine loot transfers run quietly: no receiving-loot popup, fragment
+  counters or loading text in response windows. History Sync keeps visible
+  progress and completion; actionable communication failures remain visible.
+- History removes All Players. Select All Shown changes to Deselect All
+  when every shown record is selected; deselecting keeps delete mode open.
+- New personal Display tab: Lock Window Positions, Reset All Windows,
+  Reset One Window and Loot Window Auto-Open. Preferences are per character;
+  raid profiles cannot override the personal auto-open setting.
+- Response Timing moves from Session to Responses. Personal response colours
+  remain in Responses. Session retains session controls and pre-raid checks.
+- Settings uses a slim context bar and shows footer notices only when
+  permissions or active-round locks need explaining, giving content more room.
+- All twenty-one local suites pass. Native layout and raid checks remain pending.
+- Protocol 17 retained; update testers together. Start a fresh session when
+  upgrading from alpha.58 or older. Saved settings and profiles are retained.
 
 NEW SINCE ALPHA.58
 - Master Looter selection combines a typed Name-Realm and roster dropdown

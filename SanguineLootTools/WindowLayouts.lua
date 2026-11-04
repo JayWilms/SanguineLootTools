@@ -374,6 +374,40 @@ function A:DefaultWindowPosition(frame)
     frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOPLEFT",x,-y)
     self:ClampWindowPosition(frame)
 end
+local resetWindowLabels={
+    SanguineLootCouncilResponses="Response Window",SanguineLootCouncilMain="Voting Window",
+    SanguineLootCouncilTrade="Loot Window",SanguineLootCouncilTimer="Timer Window",
+    SanguineLootCouncilSettings="Settings Window",SanguineLootCouncilHistory="History Window",
+    SanguineLootCouncilReadiness="Version Check Window",
+}
+function A:WindowResetChoices()
+    local choices={}
+    for _,entry in ipairs(self.windowFrames or {}) do
+        local label=resetWindowLabels[entry.name]
+        if label then choices[#choices+1]={label,entry.name} end
+    end
+    table.sort(choices,function(a,b) return a[1]<b[1] end)
+    return choices
+end
+function A:ResetOneWindowLayout(name)
+    if not resetWindowLabels[name] then return false end
+    for _,entry in ipairs(self.windowFrames or {}) do
+        if entry.name==name then
+            local frame=entry.frame
+            self:FinishWindowMove(frame,name)
+            self:WindowLayoutStore()[name]=nil
+            local policy=self:WindowPolicy(frame)
+            if policy then self:ResizeReadableWindow(frame,policy[1],policy[2]) end
+            self:DefaultWindowPosition(frame)
+            self:SaveWindowLayout(frame,name)
+            self:RefreshWindowChrome(frame)
+            self:Render()
+            return true
+        end
+    end
+    return false
+end
+
 function A:ResetWindowLayout()
     local store=self:WindowLayoutStore()
     for _,entry in ipairs(self.windowFrames or {}) do store[entry.name]=nil end
@@ -441,7 +475,7 @@ function A:LayoutReadableWindow(frame)
         local itemWidth=w-570
         cols[4][3]=itemWidth;cols[5][2]=340+itemWidth
         cols[5][3]=w-65-cols[5][2]
-        frame.title:SetWidth(w-60);u.historyScope:SetWidth(w-200)
+        frame.title:SetWidth(w-60);u.historyScope:SetWidth(w-60)
         place(u.historySearch,20,98,math.min(560,w-60),26)
         place(u.historyMine,20,132,165,26)
         place(u.historyGuildBank,195,132,165,26)
@@ -450,7 +484,6 @@ function A:LayoutReadableWindow(frame)
         place(u.historySelectAll,200,h-50,145,28)
         place(u.historyDeleteCancel,355,h-50,85,28)
         place(u.historySyncStatus,610,136,w-650,32)
-        place(u.historyAll,w-165,45)
         if u.archiveCompleted then place(u.archiveCompleted,370,132,220,28) end
         if u.archiveHelp then place(u.archiveHelp,20,h-78,w-40,18);u.archiveHelp:SetMaxLines(1) end
         u.historyScroll:ClearAllPoints();u.historyScroll:SetPoint("TOPLEFT",20,-194);u.historyScroll:SetPoint("BOTTOMRIGHT",-35,95)
@@ -497,7 +530,6 @@ function A:LayoutReadableWindow(frame)
         place(u.responseVoting,votingX,h-45)
         self:StyleButtonOutline(u.responseVoting)
         place(u.responseRoleHint,202,h-37,math.max(100,body-220))
-        place(u.popupNetwork,92,h-75,body)
     elseif frame==u.main then
         -- All panels fit within the actual window; never crop a larger canvas.
         local sidebar=math.min(304,math.max(264,math.floor(w*304/1100+0.5)))

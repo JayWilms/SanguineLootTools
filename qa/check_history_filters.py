@@ -202,3 +202,35 @@ assert(A.lastMessage:find('1 changed record(s) were kept',1,true))
 assert(not A:ConfirmHistoryDeletion(context),'confirmation replay was accepted')
 ''')
 print('Normal audit clicks, opt-in deletion, filter selection, cancellation, confirmation and newer-record guards pass.')
+
+# Bulk selection is reversible without leaving delete mode. The label reflects
+# manual row changes too; an empty result is never considered fully selected.
+delete.execute('''
+local function widget()
+ return {SetText=function(s,v) s.value=v end,SetShown=function(s,v) s.shown=v end,SetEnabled=function(s,v) s.enabled=v end}
+end
+A.ui={historyDelete=widget(),historySelectAll=widget(),historyDeleteCancel=widget()}
+local records=SanguineLootCouncilDB.history
+local before=#records
+A:BeginHistoryDeletion();A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Select All Shown')
+A:SelectShownHistory();A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Deselect All' and A:HistoryDeleteCount()==before)
+A:SelectShownHistory();A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Select All Shown' and A:HistoryDeleteCount()==0 and A.historyDeleteMode)
+A:ClickHistoryRecord(records[1]);A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Select All Shown')
+A:ClickHistoryRecord(records[2]);A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Deselect All')
+A:ClickHistoryRecord(records[1]);A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Select All Shown')
+A:SelectShownHistory();A:RenderHistoryDeletion(records,'toggle')
+assert(A.ui.historySelectAll.value=='Deselect All')
+A:RenderHistoryDeletion({},'empty')
+assert(A.ui.historySelectAll.value=='Select All Shown' and not A.ui.historySelectAll.enabled)
+A:SelectShownHistory();assert(A:HistoryDeleteCount()==0 and A.historyDeleteMode)
+assert(#SanguineLootCouncilDB.history==before)
+A:CancelHistoryDeletion();A:RenderHistoryDeletion(records,'toggle')
+assert(not A.historyDeleteMode and not A.ui.historySelectAll.shown)
+''')
+print('Select/deselect labels follow bulk and manual row selection; clearing preserves delete mode and records.')

@@ -4,8 +4,8 @@ local function move(object,parent,x,y,width,height)
     if width then object:SetWidth(width) end
     if height then object:SetHeight(height) end
 end
-local pageOrder={"Session","Loot Configuration","Responses","Council","Alerts","Profiles","Advanced"}
-local pageDescriptions={["Loot Configuration"]="Choose what is collected, who receives automatic assignments and why.",Session="Manage this raid and its response rounds.",Responses="Configure raid choices and personalise your colours.",Council="Assign loot authority and set council voting rules.",Alerts="Control trade-expiry warnings and sounds.",Profiles="Reuse your raid configuration.",Advanced="Recovery and diagnostics for when you need them."}
+local pageOrder={"Session","Loot Configuration","Responses","Council","Alerts","Display","Profiles","Advanced"}
+local pageDescriptions={["Loot Configuration"]="Choose what is collected, who receives automatic assignments and why.",Session="Manage this raid and its pre-raid checks.",Responses="Configure raid choices and personalise your colours.",Council="Assign loot authority and set council voting rules.",Alerts="Control trade-expiry warnings and sounds.",Display="Personal window layout and opening preferences.",Profiles="Reuse your raid configuration.",Advanced="Recovery and diagnostics for when you need them."}
 local togglePath="Interface\\AddOns\\SanguineLootTools\\Assets\\"
 local function switch(control)
     control:SetSize(76,26);control:SetBackdrop(nil)
@@ -210,19 +210,19 @@ end
 function A:BuildSettingsUI(u,window,text,button,edit)
     local hub=window("SanguineLootCouncilSettings","Sanguine Loot Tools  |  Settings",1000,720)
     u.settingsHub=hub;u.settingsPages={};u.settingsTabs={};u.settingsScrolls={};u.settingsPositions={};u.settingsRows={};u.settingsSections={}
-    u.settingsStatus=text(hub,"",11,22,-61,950);u.settingsStatus:SetHeight(28);u.settingsStatus:SetMaxLines(2)
+    u.settingsStatus=text(hub,"",11,22,-51,950);u.settingsStatus:SetHeight(16);u.settingsStatus:SetMaxLines(1)
     u.settingsHeading=text(hub,"Session",18,210,-105,700)
     u.settingsDescription=text(hub,"",12,210,-132,700)
     u.settingsHeading:Hide();u.settingsDescription:Hide()
-    u.settingsAccess=text(hub,"",11,22,-680,950)
-    local statusBand=hub:CreateTexture(nil,"BACKGROUND");statusBand:SetPoint("TOPLEFT",1,-43);statusBand:SetPoint("TOPRIGHT",-1,-43);statusBand:SetHeight(45);statusBand:SetColorTexture(0.075,0.08,0.095,1)
+    u.settingsAccess=text(hub,"",11,22,-680,950);u.settingsAccess:SetHeight(16);u.settingsAccess:SetMaxLines(1);u.settingsAccess:Hide()
+    local statusBand=hub:CreateTexture(nil,"BACKGROUND");statusBand:SetPoint("TOPLEFT",1,-43);statusBand:SetPoint("TOPRIGHT",-1,-43);statusBand:SetHeight(28);statusBand:SetColorTexture(0.075,0.08,0.095,1)
     for i,name in ipairs(pageOrder) do
-        local page=CreateFrame("Frame",nil,hub);page:SetPoint("TOPLEFT",210,-104);page:SetSize(750,560)
-        local scroll=A:CreateScrollFrame(page);scroll:SetPoint("TOPLEFT",0,0);scroll:SetSize(730,560)
+        local page=CreateFrame("Frame",nil,hub);page:SetPoint("TOPLEFT",210,-87);page:SetSize(750,608)
+        local scroll=A:CreateScrollFrame(page);scroll:SetPoint("TOPLEFT",0,0);scroll:SetSize(730,608)
         local content=CreateFrame("Frame",nil,scroll);content:SetSize(710,600);scroll:SetScrollChild(content)
         scroll:EnableMouseWheel(true);scroll:SetScript("OnMouseWheel",function(f,delta) f:SetVerticalScroll(math.max(0,math.min(f:GetVerticalScrollRange(),f:GetVerticalScroll()-delta*36))) end)
         page.content=content;u.settingsPages[name]=page;u.settingsScrolls[name]=scroll
-        local tab=button(hub,name,22,-112-(i-1)*43,158,function() A:SelectSettingsPage(name) end)
+        local tab=button(hub,name,22,-95-(i-1)*43,158,function() A:SelectSettingsPage(name) end)
         tab:GetFontString():SetJustifyH("LEFT");tab:SetHeight(34)
         tab.accent=tab:CreateTexture(nil,"ARTWORK");tab.accent:SetPoint("TOPLEFT",0,0);tab.accent:SetPoint("BOTTOMLEFT",0,0);tab.accent:SetWidth(4);tab.accent:SetColorTexture(0.78,0.08,0.15,1)
         u.settingsTabs[name]=tab
@@ -234,7 +234,7 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     if u.settingsLogo.SetTexelSnappingBias then u.settingsLogo:SetTexelSnappingBias(0) end
     u.settingsLogo:SetSize(158,158);u.settingsLogo:SetPoint("TOPLEFT",22,-400)
     u.settingsSidebarDivider=hub:CreateTexture(nil,"BACKGROUND")
-    u.settingsSidebarDivider:SetPoint("TOPLEFT",195,-89);u.settingsSidebarDivider:SetPoint("BOTTOMLEFT",195,38)
+    u.settingsSidebarDivider:SetPoint("TOPLEFT",195,-72);u.settingsSidebarDivider:SetPoint("BOTTOMLEFT",195,18)
     u.settingsSidebarDivider:SetWidth(1);u.settingsSidebarDivider:SetColorTexture(.14,.15,.17,1)
     local function position(object,parent,x,y,width,height)
         object:SetParent(parent)
@@ -276,17 +276,33 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     u.raidSetupSummary=text(session,"",12,0,-70,690)
     position(u.raidSetupSummary,session,0,70,function(w) return w end,100);u.raidSetupSummary:SetJustifyV("TOP")
     for i,key in ipairs({"start","finish","resume"}) do local index=i;position(u[key],session,function(w) return (index-1)*(w+10)/3 end,187,function(w) return (w-20)/3 end,30) end
-    section(session,"Response Rounds",250)
-    row(session,"Response timer","Seconds allowed for players to respond. Applies to new rounds.",287,u.responseSeconds,100)
-    u.responseSeconds.hint:Hide();position(u.applyResponseTimer,session,function(w) return w-180 end,353,180,28);u.applyResponseTimer:SetText("Apply timer")
-    section(session,"Before The Raid",425)
-    row(session,"Addon versions","Review group versions before distributing loot.",465,u.readiness,180)
-    section(session,"Personal Display",550)
-    u.lockWindows=button(session,"",0,0,76,function() A:SetWindowPositionsLocked(not A:WindowPositionsLocked()) end);switch(u.lockWindows)
-    row(session,"Lock window positions","Lock all windows. Each title-bar padlock can override this for one window.",590,u.lockWindows,76)
-    u.resetWindows=button(session,"Reset window layout",0,0,180,function() A:ResetWindowLayout() end)
-    row(session,"Reset window layout","Restore recommended sizes and opening positions for every window.",665,u.resetWindows,180)
-    session:SetHeight(755)
+    section(session,"Before The Raid",250)
+    row(session,"Addon versions","Review group versions before distributing loot.",290,u.readiness,180)
+    session:SetHeight(380)
+    local display=u.settingsPages.Display.content
+    section(display,"Window Layout",0)
+    u.lockWindows=button(display,"",0,0,76,function() A:SetWindowPositionsLocked(not A:WindowPositionsLocked()) end);switch(u.lockWindows)
+    row(display,"Lock Window Positions","Lock all windows. Each title-bar padlock can override this for one window.",40,u.lockWindows,76)
+    u.resetWindows=button(display,"Reset All Windows",0,0,180,function() A:ResetWindowLayout() end)
+    row(display,"Reset All Windows","Restore recommended sizes and opening positions for every window.",113,u.resetWindows,180)
+    section(display,"Reset One Window",212)
+    description(display,"Choose a window, then reset its size and position. Other windows stay where you put them.",242)
+    u.windowResetPicker=button(display,"Choose a window",0,0,300,function() end)
+    dropdown(u.windowResetPicker,function() return A:WindowResetChoices() end,function(name)
+        u.selectedResetWindow=name
+        for _,choice in ipairs(A:WindowResetChoices()) do if choice[2]==name then u.windowResetPicker:SetText(choice[1]);break end end
+        u.resetOneWindow:SetEnabled(true)
+    end)
+    u.resetOneWindow=button(display,"Reset Window",0,0,180,function()
+        if u.selectedResetWindow then A:ResetOneWindowLayout(u.selectedResetWindow) end
+    end)
+    position(u.windowResetPicker,display,0,302,function(w) return w-195 end,28)
+    position(u.resetOneWindow,display,function(w) return w-180 end,302,180,28)
+    u.resetOneWindow:SetEnabled(false)
+    section(display,"Loot Window",380)
+    u.lootOpen=button(display,"",0,0,76,function() A:SetLootWindowAutoOpen(not A:LootWindowAutoOpen()) end);switch(u.lootOpen)
+    row(display,"Loot Window Auto-Open","Open your Loot window when new tracked loot arrives. Tracking continues when disabled.",420,u.lootOpen,76)
+    display:SetHeight(510)
     local alerts=u.settingsPages.Alerts.content
     section(alerts,"Trade-Expiry Warnings",0)
     description(alerts,"Warnings go to the raid leader, Master Looter and item holder.",30)
@@ -332,7 +348,7 @@ function A:BuildSettingsUI(u,window,text,button,edit)
         u.councilRulesPositions[#u.councilRulesPositions+1]=p
     end
     local responses=u.settingsPages.Responses.content
-    u.responseSectionOpen={raid=true,personal=true}
+    u.responseSectionOpen={timing=true,raid=true,personal=true}
     u.responseSections={}
     local function responseSection(key,title,access)
         local group={}
@@ -349,6 +365,10 @@ function A:BuildSettingsUI(u,window,text,button,edit)
         u.responseSections[key]=group
         return group.body
     end
+    local timing=responseSection("timing","Response Timing","Raid Leader only")
+    row(timing,"Response Timer","Seconds allowed for players to respond. Applies to new rounds.",0,u.responseSeconds,100)
+    u.responseSeconds.hint:Hide()
+    position(u.applyResponseTimer,timing,function(w) return w-180 end,76,180,28);u.applyResponseTimer:SetText("Apply Timer")
     local raid=responseSection("raid","Raid Response Choices","Raid Leader only")
     local personal=responseSection("personal","Your Response Colours","Personal • everyone")
     u.responseEditNotice=description(raid,"",0)
@@ -570,21 +590,25 @@ function A:LayoutSettings()
     local w,h=u.settingsHub:GetWidth(),u.settingsHub:GetHeight();local body=w-260
     local options=self:ResponseOptions();local enabled=0
     for _,v in ipairs(options) do if v.enabled then enabled=enabled+1 end end
-    local key=w..":"..h..":"..#options..":"..enabled..":"..tostring(u.responseSectionOpen.raid)..":"..tostring(u.responseSectionOpen.personal)..":"..tostring(u.councilRowsShown)
+    local key=w..":"..h..":"..#options..":"..enabled..":"..tostring(u.responseSectionOpen.timing)..":"..tostring(u.responseSectionOpen.raid)..":"..tostring(u.responseSectionOpen.personal)..":"..tostring(u.councilRowsShown)..":"..tostring(u.settingsHasNotice)
     if u.settingsLayoutKey==key then self:RenderSettingsPreview();self:LayoutLootConfiguration();return end
     u.settingsLayoutKey=key
     u.settingsHub.title:SetWidth(w-70);u.settingsStatus:SetWidth(w-44)
     -- Anchor the branding near the sidebar foot, with clear navigation/footer margins.
-    local logoTop=112+(#pageOrder-1)*43+34+16
-    local logoRoom=math.max(0,h-48-logoTop)
+    local logoTop=95+(#pageOrder-1)*43+34+16
+    local logoRoom=math.max(0,h-(u.settingsHasNotice and 48 or 28)-logoTop)
     local logoSize=math.min(158,logoRoom)
     u.settingsLogo:SetSize(logoSize,logoSize)
     u.settingsLogo:ClearAllPoints();u.settingsLogo:SetPoint("TOPLEFT",22+(158-logoSize)/2,-logoTop-math.max(0,logoRoom-logoSize-20))
     u.settingsLogo:SetShown(logoSize>=48)
     u.settingsHeading:SetWidth(body);u.settingsDescription:SetWidth(body)
     u.settingsAccess:ClearAllPoints();u.settingsAccess:SetPoint("TOPLEFT",22,-h+28);u.settingsAccess:SetWidth(w-44)
+    local viewport=h-(u.settingsHasNotice and 137 or 112)
+    u.settingsSidebarDivider:ClearAllPoints()
+    u.settingsSidebarDivider:SetPoint("TOPLEFT",195,-72)
+    u.settingsSidebarDivider:SetPoint("BOTTOMLEFT",195,u.settingsHasNotice and 38 or 18)
     for name,page in pairs(u.settingsPages) do
-        page:SetSize(body+20,h-160);u.settingsScrolls[name]:SetSize(body+10,h-160);page.content:SetWidth(body)
+        page:SetSize(body+20,viewport);u.settingsScrolls[name]:SetSize(body+10,viewport);page.content:SetWidth(body)
     end
     for _,p in ipairs(u.settingsPositions) do
         local x=type(p.x)=="function" and p.x(body) or p.x
@@ -607,7 +631,7 @@ function A:LayoutSettings()
     at(u.addResponse,0,74+count*44+10,180,28);at(u.resetResponses,195,74+count*44+10,190,28)
     at(u.personalColorsHelp,0,0,body,32)
     local sectionY=0
-    for _,key in ipairs({"raid","personal"}) do
+    for _,key in ipairs({"timing","raid","personal"}) do
         local group=u.responseSections[key];local open=u.responseSectionOpen[key]
         at(group.header,0,sectionY,body,36)
         group.title:SetWidth(body-280)
@@ -615,7 +639,7 @@ function A:LayoutSettings()
         group.arrow:ClearAllPoints();group.arrow:SetPoint("TOPRIGHT",-1,-1);group.arrow:SetSize(34,34)
         if type(group.arrow.sltArrowParts)~="table" then self:StyleRailArrow(group.arrow,1) end
         self:SetRailArrowDirection(group.arrow,open and -1 or 1)
-        local contentHeight=key=="raid" and (74+count*44+48) or (40+math.ceil(count/3)*42)
+        local contentHeight=key=="timing" and 112 or key=="raid" and (74+count*44+48) or (40+math.ceil(count/3)*42)
         at(group.body,0,sectionY+46,body,contentHeight);group.body:SetShown(open)
         sectionY=sectionY+46+(open and contentHeight+16 or 0)
         if key=="raid" then at(u.personalColorsDivider,0,sectionY-6,body,1) end
@@ -623,7 +647,7 @@ function A:LayoutSettings()
         u.responsePreview:SetParent(u.settingsPages.Responses);u.previewHeading:SetParent(u.settingsPages.Responses)
     u.previewHelp:Hide()
     u.responsePreview:SetWidth(body);self:RenderSettingsPreview()
-    local viewport=h-160;local previewHeight=u.responsePreview:GetHeight()
+    local previewHeight=u.responsePreview:GetHeight()
     local dockTop=viewport-previewHeight-30
     at(u.previewDivider,0,dockTop-18,body,1)
     at(u.previewHeading,0,dockTop,body,22)
@@ -674,12 +698,39 @@ function A:RenderRaidSetupSummary()
         "\n"..memberSummary)
 end
 
+local sharedSettingsPages={Session=true,["Loot Configuration"]=true,Responses=true,Council=true,Alerts=true,Profiles=true}
+function A:RefreshSettingsContext()
+    local u,s=self.ui,self.state
+    if not u or not u.settingsStatus or not u.settingsAccess then return end
+    local page=self.settingsPage or "Session"
+    local role=self:IsLeader() and "Raid Leader" or self:IsMaster() and "Master Looter" or self:IsCouncil() and "Council" or "Raider"
+    local context=not s and "Editing Saved Raid Setup" or
+        ((self.demo and (self.groupTest and "Group Test" or "Solo Test") or "Active Session").." · "..role)
+    u.settingsStatus:SetText(page=="Display" and "Personal Display Settings" or context)
+    local notice=""
+    if s and sharedSettingsPages[page] then
+        if not self:CanConfigureRaid() then
+            notice=page=="Responses" and "View only — Raid Leader controls raid settings. Your response colours remain editable."
+                or "View only — Raid Leader controls these settings."
+        elseif page=="Responses" and not self:ResponseConfigEditable() then
+            notice="Response choices are locked during active rounds. Your response colours remain editable."
+        elseif (page=="Council" or page=="Profiles") and self:VotingLocked() then
+            notice=page=="Council" and (s.groupTest and "Voting rules are locked during active rounds."
+                or "Council membership and voting rules are locked during active rounds.")
+                or "Profile changes are locked during active rounds."
+        end
+    end
+    local shown=notice~=""
+    if u.settingsHasNotice~=shown then u.settingsLayoutKey=nil end
+    u.settingsHasNotice=shown
+    u.settingsAccess:SetText(notice);u.settingsAccess:SetShown(shown)
+end
+
 function A:RenderSettingsPresentation()
     local u,s=self.ui,self.state
-    local role=self:IsLeader() and "Raid Leader" or self:IsMaster() and "Master Looter" or self:IsCouncil() and "Council" or "Raider"
-    u.settingsStatus:SetText(not s and "Raid setup — saved settings for your next session" or
-        ((self.demo and self:TestLabel() or "Active session").."   |   Your role: "..role.."   |   Master Looter: "..self:DisplayName(s.master)))
-    u.settingsAccess:SetText(not s and "Edit your saved raid setup here, even while solo. It is used only when you start a session as Raid Leader." or self:IsLeader() and "Raid settings are controlled by you. Display preferences and colours affect only your character." or "Raid settings: view only — Raid Leader controls. Your display preferences and response colours remain editable.")
+    self:RefreshSettingsContext()
+    switchValue(u.lootOpen,self:LootWindowAutoOpen());u.lootOpen:SetEnabled(true)
+    u.resetOneWindow:SetEnabled(u.selectedResetWindow~=nil)
     u.responseEditNotice:SetText(not s and "Saved raid setup • edit choices for your next session as Raid Leader. Personal colours remain separate." or self:ResponseConfigEditable() and "Raid Leader controls • names, order and visibility apply to future response rounds." or self:IsLeader() and "Raid Leader only • choices are locked during active rounds. Finish or reset them before editing." or "View only • the Raid Leader controls names, order and visibility.")
     switchValue(u.autoMaster,not self.demo and (s and s.masterAutoSync or (not s and SanguineLootCouncilDB.masterAutoSync~=false)))
     switchValue(u.lootPanels.timer.auto,s and s.autoCollect~=false or not s)
@@ -701,6 +752,7 @@ end
 
 function A:SelectSettingsPage(name)
     if not self.ui or not self.ui.settingsPages then return end
+    local layoutReady=self.ui.settingsLayoutKey~=nil
     if name=="Raid Profiles" then name="Profiles" end
     if name=="Master Loot" then name="Council" elseif name=="General" then name="Session" elseif name=="Tools" then name="Advanced" end
     if not self.ui.settingsPages[name] then name="Session" end
@@ -711,6 +763,8 @@ function A:SelectSettingsPage(name)
     end
     self.ui.settingsHeading:SetText(name=="Profiles" and "Raid Profiles" or name);self.ui.settingsDescription:SetText(pageDescriptions[name])
     self.settingsPage=name
+    self:RefreshSettingsContext()
+    if layoutReady then self:LayoutSettings() end
 end
 function A:ShowSettings()
     self:BuildUI();self:Render();self.ui.settingsHub:Show()
