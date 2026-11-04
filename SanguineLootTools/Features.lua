@@ -74,6 +74,24 @@ function A:RememberRaidSettings(settings,profile)
     d.lootConfiguration=self:CleanLootConfiguration(c.lootConfiguration) or self:DefaultLootConfiguration()
     d.raidSetupRevision=(d.raidSetupRevision or 0)+1
 end
+-- Explicit row selections are idempotent; replacing a member is one validated change.
+function A:ApplyCouncilMemberChange(council,target,p)
+    if p.enabled~=nil and type(p.enabled)~="boolean" then return false,"Invalid council selection." end
+    if p.previous~=nil then
+        if p.enabled~=true or type(p.previous)~="string" or council[p.previous]~=true then return false,"Council membership changed. Select the member again." end
+        if target~=p.previous and council[target] then return false,"That player is already on the council." end
+    end
+    local enabled=p.enabled
+    if enabled==nil then enabled=not council[target] end
+    if enabled and not council[target] and not p.previous then
+        local count=0;for _ in pairs(council) do count=count+1 end
+        if count>=40 then return false,"Council is full (40 members)." end
+    end
+    if p.previous then council[p.previous]=nil end
+    council[target]=enabled and true or nil
+    return true
+end
+
 function A:ApplyIdleRaidSetting(op,p)
     if self.state or self.demo or not self.raidSetupOperations[op] then return false end
     local c=self:RaidSettings()
@@ -90,8 +108,8 @@ function A:ApplyIdleRaidSetting(op,p)
         if not target then self:Print("Enter an unambiguous current member or full Name-Realm for later.");return false end
         if op=="master" then c.master=target
         else
-            if not c.council[target] then local n=0;for _ in pairs(c.council) do n=n+1 end;if n>=40 then return false end end
-            c.council[target]=not c.council[target] or nil
+            local ok,message=self:ApplyCouncilMemberChange(c.council,target,p)
+            if not ok then self:Print(message);return false end
         end
     elseif op=="warningSettings" then c.warningSettings=self:CleanWarningSettings(p.settings);if not c.warningSettings then return false end
     elseif op=="lootConfiguration" then c.lootConfiguration=self:CleanLootConfiguration(p.settings);if not c.lootConfiguration then return false end

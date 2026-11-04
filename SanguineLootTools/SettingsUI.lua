@@ -85,7 +85,7 @@ function A:RefreshRaidMemberPickers()
     local key=table.concat(names,"\n")
     local menu=u.settingsDropdown
     if key~=u.raidMemberPickerRoster and menu and
-        (menu.owner==u.masterMemberPicker or menu.owner==u.councilMemberPicker) then
+        (menu.owner==u.masterMemberPicker or menu.owner==u.councilMemberPicker or (menu.owner and menu.owner.councilMembershipRow)) then
         self:CloseSettingsDropdown()
     end
     u.raidMemberPickerRoster=key
@@ -94,6 +94,85 @@ function A:RefreshRaidMemberPickers()
     u.masterMemberPicker:SetEnabled(master and #choices>0)
     u.councilMemberPicker:SetEnabled(council and #choices>0)
 end
+
+function A:BuildCouncilMemberRows(parent,button,text,dropdown)
+    local u=self.ui
+    u.councilRows={}
+    for i=1,40 do
+        local r={}
+        r.memberPicker=button(parent,"Select raid member",0,0,250,function() end)
+        r.memberPicker.councilMembershipRow=r
+        dropdown(r.memberPicker,function()
+            r.menuMember=r.member;r.menuSID=A.state and A.state.id or false
+            r.menuRevision=A:RaidConfigurationRevision()
+            return A:RaidMemberChoices("council")
+        end,function(name)
+            if not A:RaidMemberPickerEditable("council") or not A.roster[name]
+                or r.menuSID~=(A.state and A.state.id or false)
+                or r.menuRevision~=A:RaidConfigurationRevision() or r.menuMember~=r.member then return end
+            if name==r.member then return end
+            if A:RaidSettings().council[name] then A:Print("That player is already on the council.");return end
+            if A:Act("council",{target=name,enabled=true,previous=r.member}) then
+                u.councilMemberDraft=nil;A:RenderSettings()
+            end
+        end)
+        r.remove=button(parent,"Remove",0,0,90,function()
+            if not A:RaidMemberPickerEditable("council") then return end
+            A:CloseSettingsDropdown()
+            if r.member then A:Act("council",{target=r.member,enabled=false})
+            else u.councilMemberDraft=nil;A:RenderSettings() end
+        end)
+        r.memberPicker:Hide();r.remove:Hide()
+        u.councilRows[i]=r
+    end
+    u.addCouncilMember=button(parent,"+ Add Council Member",0,0,200,function()
+        if not A:RaidMemberPickerEditable("council") then return end
+        u.councilMemberDraft=true;A:CloseSettingsDropdown();A:RenderSettings()
+    end)
+    u.councilRowsHelp=text(parent,"Choose a raid member in each row. Changes save immediately; saved members outside the current group remain listed.",11,0,0,600)
+    u.councilRowsHelp:SetHeight(38);u.councilRowsHelp:SetMaxLines(2)
+end
+
+function A:RenderCouncilMemberRows()
+    local u=self.ui
+    if not u or not u.councilRows then return end
+    local names={}
+    for name in pairs(self:RaidSettings().council) do names[#names+1]=name end
+    table.sort(names)
+    local editable=self:RaidMemberPickerEditable("council")
+    local key=table.concat(names,"\n")..":"..tostring(editable)..":"..tostring(self.state and self.state.id)
+    if key~=u.councilRowsKey and u.settingsDropdown and u.settingsDropdown.owner
+        and u.settingsDropdown.owner.councilMembershipRow then self:CloseSettingsDropdown() end
+    u.councilRowsKey=key
+    local draft=(#names==0 or u.councilMemberDraft==true) and #names<40
+    local count=#names+(draft and 1 or 0)
+    local width=u.settingsHub:GetWidth()-260
+    local hasRoster=next(self.roster or {})~=nil
+    local function at(control,x,y,w)
+        control:ClearAllPoints();control:SetPoint("TOPLEFT",x,-y);control:SetSize(w,28)
+    end
+    for i,r in ipairs(u.councilRows) do
+        local visible=i<=count
+        r.member=names[i]
+        r.memberPicker:SetShown(visible);r.remove:SetShown(visible)
+        if visible then
+            at(r.memberPicker,0,453+(i-1)*44,width-105)
+            at(r.remove,width-90,453+(i-1)*44,90)
+            r.memberPicker:SetText(r.member and (r.member..(not self.roster[r.member] and " (Not in group)" or "")) or "Select raid member")
+            r.memberPicker:SetEnabled(editable and hasRoster)
+            r.remove:SetEnabled(editable and (r.member~=nil or #names>0))
+        end
+    end
+    local bottom=453+count*44
+    at(u.addCouncilMember,0,bottom,200)
+    u.addCouncilMember:SetEnabled(editable and hasRoster and not draft and #names<40)
+    u.councilRowsHelp:ClearAllPoints();u.councilRowsHelp:SetPoint("TOPLEFT",0,-bottom-42);u.councilRowsHelp:SetWidth(width)
+    local delta=bottom+100-680
+    for _,p in ipairs(u.councilRulesPositions or {}) do p.y=p.councilBaseY+delta end
+    u.councilSettingsContent:SetHeight(1090+delta)
+    u.councilRowsShown=count
+end
+
 function A:BuildSettingsUI(u,window,text,button,edit)
     local hub=window("SanguineLootCouncilSettings","Sanguine Loot Tools  |  Settings",1000,720)
     u.settingsHub=hub;u.settingsPages={};u.settingsTabs={};u.settingsScrolls={};u.settingsPositions={};u.settingsRows={};u.settingsSections={}
@@ -200,11 +279,10 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     description(council,"Pick a current group member or type Name-Realm, then click Assign. Manual assignment is unavailable while actively following the game's Master Looter.",295)
     description(council,"Prepare names while solo. Collection and distribution settings are in Loot Configuration.",350)
     section(council,"Council membership",405)
-    position(u.councilName,council,0,453,function(w) return w-195 end,28);u.councilName.hint:Hide()
-    position(u.toggleCouncil,council,function(w) return w-180 end,453,180,28)
-    position(u.councilMemberPicker,council,0,490,function(w) return w-195 end,28)
-    description(council,"Pick a current group member or type Name-Realm, then click Add / remove. Current council members are marked in the list.",530)
-    position(u.councilList,council,0,580,function(w) return w end,90)
+    u.councilName:Hide();u.councilName.hint:Hide()
+    u.toggleCouncil:Hide();u.councilMemberPicker:Hide();u.councilList:Hide()
+    self:BuildCouncilMemberRows(council,button,text,dropdown)
+    local councilRulesStart=#u.settingsPositions+1
     section(council,"Voting rules",680)
     switch(u.selfVotes);row(council,"Allow self-voting","Council members may vote for themselves.",723,u.selfVotes,76)
     dropdown(u.ruleLimit,{{"1 candidate",1},{"2 candidates",2},{"3 candidates",3}},function(v) A:UpdateVotingRule("limit",v) end)
@@ -214,6 +292,11 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     dropdown(u.ruleNames,{{"Totals only",false},{"Show voter names",true}},function(v) A:UpdateVotingRule("names",v) end)
     row(council,"Voter identities","Controls whether revealed results include voter names.",942,u.ruleNames)
     description(council,"Raid Leader and Master Looter vote only when added to council. Active rounds lock membership and voting rules; shared tests retain their existing membership exception.",1020);council:SetHeight(1090)
+    u.councilRulesPositions={}
+    for i=councilRulesStart,#u.settingsPositions do
+        local p=u.settingsPositions[i];p.councilBaseY=p.y
+        u.councilRulesPositions[#u.councilRulesPositions+1]=p
+    end
     local responses=u.settingsPages.Responses.content
     u.responseSectionOpen={raid=true,personal=true}
     u.responseSections={}
@@ -442,10 +525,11 @@ end
 
 function A:LayoutSettings()
     local u=self.ui;if not u or not u.settingsPositions then return end
+    self:RenderCouncilMemberRows()
     local w,h=u.settingsHub:GetWidth(),u.settingsHub:GetHeight();local body=w-260
     local options=self:ResponseOptions();local enabled=0
     for _,v in ipairs(options) do if v.enabled then enabled=enabled+1 end end
-    local key=w..":"..h..":"..#options..":"..enabled..":"..tostring(u.responseSectionOpen.raid)..":"..tostring(u.responseSectionOpen.personal)
+    local key=w..":"..h..":"..#options..":"..enabled..":"..tostring(u.responseSectionOpen.raid)..":"..tostring(u.responseSectionOpen.personal)..":"..tostring(u.councilRowsShown)
     if u.settingsLayoutKey==key then self:RenderSettingsPreview();self:LayoutLootConfiguration();return end
     u.settingsLayoutKey=key
     u.settingsHub.title:SetWidth(w-70);u.settingsStatus:SetWidth(w-44)

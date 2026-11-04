@@ -121,3 +121,82 @@ assert(A:RaidMemberPickerEditable('master'))
 assert(not A:RaidMemberPickerEditable('invalid'))
 ''')
 print('Roster churn, stale clicks, unrelated menus, lost permissions, active ballots, shared tests and master-role synchronization passed.')
+
+# Council row controls apply immediately and use one atomic change for replacement.
+lua=setup()
+lua.execute('''
+addRoster()
+A.ui.settingsHub=CreateFrame('Frame',nil,UIParent);A.ui.settingsHub:SetSize(1000,720)
+A.ui.councilSettingsContent=parent;A.ui.councilRulesPositions={{y=680,councilBaseY=680}}
+local function button(owner,label,x,y,width,callback)
+ local b=CreateFrame('Button',nil,owner);b:SetText(label);b:SetScript('OnClick',callback);return b
+end
+local function text(owner,label) local t=CreateFrame('FontString',nil,owner);t:SetText(label);return t end
+local function dropdown(control,choices,callback) A:BindSettingsDropdown(control,choices,callback,button) end
+function A:RenderSettings() self:RenderCouncilMemberRows();self:RefreshSettingsDropdowns() end
+A:BuildCouncilMemberRows(parent,button,text,dropdown);A:RenderSettings()
+function chooseCouncilRow(index,name)
+ local row=A.ui.councilRows[index]
+ row.memberPicker.dropdownArrow:Click()
+ local menu=A.ui.settingsDropdown
+ for i,choice in ipairs(menu.choices) do
+  if choice[2]==name then A:ScrollSettingsDropdown(i-1);ClickDropdownRow(menu.rows[i-menu.offset]);return end
+ end
+ error('Missing council choice '..name)
+end
+assert(A.ui.councilRowsShown==1 and not A.ui.councilRows[1].remove:IsEnabled())
+chooseCouncilRow(1,'Same-Alpha')
+assert(A:RaidSettings().council['Same-Alpha'])
+assert(A.ui.councilRows[1].member=='Same-Alpha' and A.ui.councilRows[1].remove:IsEnabled())
+A.ui.addCouncilMember:Click();assert(A.ui.councilRowsShown==2)
+chooseCouncilRow(2,'Same-Beta')
+assert(A:RaidSettings().council['Same-Alpha'] and A:RaidSettings().council['Same-Beta'])
+-- Duplicate selection must not remove either existing member.
+chooseCouncilRow(1,'Same-Beta')
+assert(A:RaidSettings().council['Same-Alpha'] and A:RaidSettings().council['Same-Beta'])
+chooseCouncilRow(1,'Player40-Realm')
+assert(not A:RaidSettings().council['Same-Alpha'] and A:RaidSettings().council['Player40-Realm'])
+A.ui.councilRows[1].remove:Click()
+assert(not A:RaidSettings().council['Player40-Realm'] and A:RaidSettings().council['Same-Beta'])
+-- Saved absent members can still be removed from their own row.
+assert(A:Act('council',{target='Absent-Realm',enabled=true}));A:RenderSettings()
+assert(A.ui.councilRows[1].member=='Absent-Realm')
+assert(A.ui.councilRows[1].memberPicker:GetText():find('(Not in group)',1,true))
+A.ui.councilRows[1].remove:Click();assert(not A:RaidSettings().council['Absent-Realm'])
+A.ui.addCouncilMember:Click();A.ui.councilRows[2].remove:Click()
+assert(A.ui.councilRowsShown==1 and A.ui.councilMemberDraft==nil)
+-- Permission and active-ballot checks apply to every row.
+A.state={id='live',council={['Same-Beta']=true},items={}}
+A.leader='Other-Realm';A:RenderSettings()
+assert(not A.ui.councilRows[1].memberPicker:IsEnabled() and not A.ui.councilRows[1].remove:IsEnabled())
+A.ui.councilRows[1].remove:Click();assert(A.state.council['Same-Beta'])
+A.leader=A.me;A.state.items={{status='open',voting='open'}};A:RenderSettings()
+assert(not A.ui.councilRows[1].remove:IsEnabled())
+''')
+print('Council row selection, add/remove, atomic replacement, duplicate rejection, absent members and permission locks passed.')
+
+lua=setup()
+lua.execute('''
+addRoster();A.leader=A.me
+A.Client={ClockReady=function() return true end}
+A.state={id='live',council={['Same-Alpha']=true,['Absent-Realm']=true},items={}}
+assert(A:Reduce(A.me,{op='council',sid='live',target='Same-Beta',previous='Same-Alpha',enabled=true}))
+assert(not A.state.council['Same-Alpha'] and A.state.council['Same-Beta'])
+assert(A:Reduce(A.me,{op='council',sid='live',target='Absent-Realm',enabled=false}))
+assert(not A.state.council['Absent-Realm'])
+local ok=A:Reduce(A.me,{op='council',sid='live',target='Player40-Realm',previous='Same-Alpha',enabled=true})
+assert(not ok and not A.state.council['Player40-Realm'],'stale replacement added an extra member')
+assert(not A:Reduce('Same-Beta',{op='council',sid='live',target='Player40-Realm',enabled=true}))
+A.state.items={{status='open',voting='open'}}
+assert(not A:Reduce(A.me,{op='council',sid='live',target='Player40-Realm',previous='Same-Beta',enabled=true}))
+assert(A.state.council['Same-Beta'] and not A.state.council['Player40-Realm'])
+local full={}
+for i=1,40 do full['Member'..i..'-Realm']=true end
+assert(not A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=true}))
+assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=true,previous='Member1-Realm'}))
+assert(not full['Member1-Realm'] and full['New-Realm'])
+assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=true}))
+assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=false}))
+assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=false}))
+''')
+print('Live council reducer, stale replacements, absent-member removal, idempotent actions and full-council replacement passed.')

@@ -1,3 +1,12 @@
+## Unreleased: Council member rows
+
+- Council membership uses one full-width raid-member dropdown and a Remove button per member. Add Council Member creates another empty row. Changes save immediately.
+- Confirm sorted current members, full Name-Realm identities and existing Council markers. Selecting another member replaces only that row; selecting someone already assigned must not remove either member.
+- Saved members outside the current group remain visible as Not in group and can be removed. Empty rows can be cancelled.
+- Check 0, 1, 20 and 40 members, resizing, scrolling and the voting-rules section below the list. Forty-member replacement must not require an intermediate removal.
+- Test saved setup before starting a session, active-session leader permissions, roster changes while a dropdown is open, profile changes, stale callbacks and the existing voting lock/group-test exception.
+- Source review only: the execution environment was unavailable when these changes were prepared. The updated Lua simulations and native UI still require execution. Alpha.57 installers remain unchanged.
+
 ## Alpha.57: History search placeholder
 
 - Empty History search shows muted "Search name, date or item..." inside the box, with no label above it.

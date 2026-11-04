@@ -219,14 +219,15 @@ function A:Reduce(sender, p)
         if p.op == "selfVotes" then
             s.selfVotes = not s.selfVotes
         else
-            local target = self:Resolve(p.target)
+            local target = (p.op=="council" and p.enabled==false and type(p.target)=="string" and s.council[p.target] and p.target) or self:Resolve(p.target)
             if not target then return false, "Use an unambiguous raid member name (Name-Realm)." end
             if p.op == "master" then
                 local gameMaster, status = self:ReadGameMaster()
                 if s.masterAutoSync and (gameMaster or status == "pending" or status == "restricted" or s.masterWasGame) then return false, "The addon follows the in-game master looter. Turn off automatic syncing to assign manually." end
                 s.master, s.masterSource = target, "manual"
             else
-                s.council[target] = not s.council[target] or nil
+                local ok,message=self:ApplyCouncilMemberChange(s.council,target,p)
+                if not ok then return false,message end
                 if s.groupTest then
                     for _,it in ipairs(s.items) do
                         if it.status~="awarded" and it.voting~="idle" then self:ResetBallot(it);self:StartBallot(it) end
