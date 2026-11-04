@@ -217,3 +217,16 @@ for member in paused.values():
 run(paused,start=301,limit=1500)
 for member in paused.values(): member.execute('assert(#SanguineLootCouncilDB.history==1)')
 print('Combat pause and resume preserve discovery and eventual synchronization.')
+
+# A local delete selection must not race a locally or remotely initiated sync.
+locked=peer('Zergul-Realm',names[:2])
+locked.execute('''
+assert(A:BeginHistoryDeletion())
+assert(not A:StartHistorySync() and not A.historySync)
+A:HistorySyncPacket('Moon-Realm',{kind='historySync',schema=1,op='hello',token='delete-mode-race'})
+assert(not A.historySync and A.historyDeleteMode)
+A:CancelHistoryDeletion()
+assert(A:StartHistorySync())
+assert(not A:BeginHistoryDeletion() and not A.historyDeleteMode)
+''')
+print('History deletion and local/remote sync initiation cannot overlap.')

@@ -12,13 +12,13 @@ function A:IsLootAwardReason(value)
     return value=="Disenchant" or value=="Guild Bank" or value=="Other"
 end
 function A:DefaultLootConfiguration()
-    local c={collection=true,minimum=4,openWindow=false,automatic=false,rules={}}
-    for q=0,5 do c.rules[q+1]={action=q<2 and "ignore" or "council",target="",reason="",note=""} end
+    local c={collection=true,openWindow=false,automatic=false,rules={}}
+    for q=0,5 do c.rules[q+1]={action=q<4 and "ignore" or "council",target="",reason="",note=""} end
     return c
 end
 function A:CleanLootConfiguration(c)
-    if type(c)~="table" or not int(c.minimum,2,5) or type(c.collection)~="boolean" or type(c.openWindow)~="boolean" or type(c.automatic)~="boolean" or type(c.rules)~="table" then return end
-    local result={collection=c.collection,minimum=c.minimum,openWindow=c.openWindow,automatic=c.automatic,rules={}}
+    if type(c)~="table" or type(c.collection)~="boolean" or type(c.openWindow)~="boolean" or type(c.automatic)~="boolean" or type(c.rules)~="table" then return end
+    local result={collection=c.collection,openWindow=c.openWindow,automatic=c.automatic,rules={}}
     for key in pairs(c.rules) do if not int(key,1,6) then return end end
     for i=1,6 do
         local r=c.rules[i]
@@ -45,9 +45,10 @@ function A:AutomaticLootRule(quality)
     if c.automatic and r and r.action=="assign" and r.target~="" and r.reason~="" then return r end
 end
 function A:ShouldCollectLoot(quality)
-    if not self.state or self.state.autoCollect==false or not int(quality,0,5) then return false end
+    if not self.state or not int(quality,0,5) then return false end
     local c=self:LootConfiguration();local r=c.rules[quality+1]
-    return r.action~="ignore" and ((r.action=="assign" and c.automatic) or quality>=c.minimum)
+    if r.action=="council" then return c.collection and self.state.autoCollect~=false end
+    return r.action=="assign" and c.automatic
 end
 function A:CaptureLootPolicy(entry)
     local r=self:AutomaticLootRule(entry.quality)

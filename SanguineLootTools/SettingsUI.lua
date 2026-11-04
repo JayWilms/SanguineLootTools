@@ -73,7 +73,40 @@ function A:BuildRaidMemberPickers(parent,button,dropdown)
         end)
         return control
     end
-    u.masterMemberPicker=picker("master",u.masterName)
+    -- One editable field owns the roster arrow; selection still needs Assign.
+    local field=u.masterName
+    u.masterMemberPicker=field;field.dropdownRequiresRoster=true
+    field:SetTextInsets(8,36,0,0);field:SetMaxLetters(100)
+    local placeholder=field:CreateFontString(nil,"OVERLAY","ChatFontNormal")
+    placeholder:SetPoint("LEFT",8,0);placeholder:SetPoint("RIGHT",-36,0)
+    placeholder:SetJustifyH("LEFT");placeholder:SetMaxLines(1)
+    placeholder:SetTextColor(.50,.52,.55)
+    placeholder:SetText("Type Name-Realm or select a raid member…")
+    field.placeholder=placeholder
+    field:SetScript("OnTextChanged",function(box) box.placeholder:SetShown(box:GetText()=="") end)
+    field:SetScript("OnEnterPressed",function(box) box:ClearFocus() end)
+    field:SetScript("OnEnter",function(box)
+        GameTooltip:SetOwner(box,"ANCHOR_RIGHT")
+        GameTooltip:AddLine("Master Looter",1,.8,.4)
+        GameTooltip:AddLine("Type a Name-Realm or use the arrow to select a current raid member, then click Assign.",1,1,1,true)
+        GameTooltip:AddLine("Turn off Follow in-game Master Looter to choose manually.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    field:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    field.dropdownArrow=button(field,"",0,0,28,function()
+        if not A:RaidMemberPickerEditable("master") then return end
+        local choices=A:RaidMemberChoices("master")
+        if #choices==0 then A:CloseSettingsDropdown();return end
+        A:OpenSettingsDropdown(field,choices,function(name)
+            if not A:RaidMemberPickerEditable("master") or not A.roster[name] then return end
+            field:SetText(name);field:ClearFocus()
+        end)
+    end)
+    local arrow=field.dropdownArrow
+    arrow:ClearAllPoints();arrow:SetPoint("TOPRIGHT",-1,-1);arrow:SetPoint("BOTTOMRIGHT",-1,1);arrow:SetWidth(28)
+    arrow:SetBackdropColor(.16,.17,.20,1);self:StyleRailArrow(arrow,1)
+    u.settingsDropdownControls=u.settingsDropdownControls or {}
+    u.settingsDropdownControls[#u.settingsDropdownControls+1]=field
     u.councilMemberPicker=picker("council",u.councilName)
 end
 function A:RefreshRaidMemberPickers()
@@ -91,7 +124,8 @@ function A:RefreshRaidMemberPickers()
     u.raidMemberPickerRoster=key
     local master,council=self:RaidMemberPickerEditable("master"),self:RaidMemberPickerEditable("council")
     u.masterName:SetEnabled(master);u.councilName:SetEnabled(council)
-    u.masterMemberPicker:SetEnabled(master and #choices>0)
+    u.masterMemberPicker:SetEnabled(master)
+    u.masterMemberPicker.dropdownArrow:SetEnabled(master and #choices>0)
     u.councilMemberPicker:SetEnabled(council and #choices>0)
 end
 
@@ -156,14 +190,14 @@ function A:RenderCouncilMemberRows()
         r.member=names[i]
         r.memberPicker:SetShown(visible);r.remove:SetShown(visible)
         if visible then
-            at(r.memberPicker,0,453+(i-1)*44,width-105)
-            at(r.remove,width-90,453+(i-1)*44,90)
+            at(r.memberPicker,0,413+(i-1)*44,width-105)
+            at(r.remove,width-90,413+(i-1)*44,90)
             r.memberPicker:SetText(r.member and (r.member..(not self.roster[r.member] and " (Not in group)" or "")) or "Select raid member")
             r.memberPicker:SetEnabled(editable and hasRoster)
             r.remove:SetEnabled(editable and (r.member~=nil or #names>0))
         end
     end
-    local bottom=453+count*44
+    local bottom=413+count*44
     at(u.addCouncilMember,0,bottom,200)
     u.addCouncilMember:SetEnabled(editable and hasRoster and not draft and #names<40)
     u.councilRowsHelp:ClearAllPoints();u.councilRowsHelp:SetPoint("TOPLEFT",0,-bottom-42);u.councilRowsHelp:SetWidth(width)
@@ -270,24 +304,23 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     description(alerts,"Each threshold alerts once per item copy. Unknown or stale timers do not count down.",498);alerts:SetHeight(560)
     local council=u.settingsPages.Council.content;u.councilSettingsContent=council;u.councilSettingsScroll=u.settingsScrolls.Council
     section(council,"Loot Authority",0)
-    u.masterStatus=text(council,"",11,0,-32,690);position(u.masterStatus,council,0,32,function(w) return w end,38);u.masterStatus:SetMaxLines(2)
-    switch(u.autoMaster);row(council,"Follow in-game Master Looter","Keep the addon assignment aligned with the game's loot role.",90,u.autoMaster,76)
-    section(council,"Manual Assignment",175)
+    u.masterStatus=text(council,"",11,0,-102,690);position(u.masterStatus,council,0,102,function(w) return w end,38);u.masterStatus:SetMaxLines(2)
+    switch(u.autoMaster);row(council,"Follow in-game Master Looter","Keep the addon assignment aligned with the game's loot role.",32,u.autoMaster,76)
+    section(council,"Master Looter",175)
     self:BuildRaidMemberPickers(council,button,dropdown)
     position(u.masterName,council,0,218,function(w) return w-195 end,28);u.masterName.hint:Hide()
     position(u.setMaster,council,function(w) return w-180 end,218,180,28)
-    position(u.masterMemberPicker,council,0,255,function(w) return w-195 end,28)
-    description(council,"Pick a current group member or type Name-Realm, then click Assign. Manual assignment is unavailable while actively following the game's Master Looter.",295)
-    description(council,"Prepare names while solo. Collection and distribution settings are in Loot Configuration.",350)
-    section(council,"Council Membership",405)
+    description(council,"Type Name-Realm or use the arrow to select a raid member, then click Assign. Turn off Follow in-game Master Looter to choose manually.",255)
+    description(council,"Prepare names while solo. Collection and distribution settings are in Loot Configuration.",310)
+    section(council,"Council Membership",365)
     u.councilName:Hide();u.councilName.hint:Hide()
     u.toggleCouncil:Hide();u.councilMemberPicker:Hide();u.councilList:Hide()
     self:BuildCouncilMemberRows(council,button,text,dropdown)
     local councilRulesStart=#u.settingsPositions+1
     section(council,"Voting Rules",680)
     switch(u.selfVotes);row(council,"Allow self-voting","Council members may vote for themselves.",723,u.selfVotes,76)
-    dropdown(u.ruleLimit,{{"1 candidate",1},{"2 candidates",2},{"3 candidates",3}},function(v) A:UpdateVotingRule("limit",v) end)
-    row(council,"Candidates per ballot","Maximum candidates each council member can select.",796,u.ruleLimit)
+    dropdown(u.ruleLimit,{{"1 Candidate",1},{"2 Candidates",2},{"3 Candidates",3}},function(v) A:UpdateVotingRule("limit",v) end)
+    row(council,"Candidates per item","Maximum candidates each council member can select for an item.",796,u.ruleLimit)
     dropdown(u.ruleVisibility,{{"Immediately","immediate"},{"After your vote","own"},{"After award","closed"}},function(v) A:UpdateVotingRule("visibility",v) end)
     row(council,"Reveal vote totals","Choose when council members can see the results.",869,u.ruleVisibility)
     dropdown(u.ruleNames,{{"Totals only",false},{"Show voter names",true}},function(v) A:UpdateVotingRule("names",v) end)
@@ -379,8 +412,15 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     move(u.itemInput,u.itemTools,20,90,430);move(u.add,u.itemTools,465,90,130);u.itemInput.hint:Hide()
     text(u.itemTools,"Shift-click a single item in your bags, then Add loot and Queue.",12,20,-55,570)
     move(u.correctAward,u.main,250,580,140)
-    u.archiveCompleted=button(u.history,"Archive completed loot",740,-510,220,function() A:ReviewArchive() end)
-    u.archiveHelp=text(u.history,"Archives all confirmed deliveries from the active Loot list, across all players.",11,20,-512,690)
+    u.archiveCompleted=button(u.history,"Archive completed loot",370,-132,220,function() A:ReviewArchive() end)
+    u.archiveCompleted:SetScript("OnEnter",function(b)
+        GameTooltip:SetOwner(b,"ANCHOR_RIGHT")
+        GameTooltip:AddLine("Archive Completed Loot",1,.8,.4)
+        GameTooltip:AddLine("Archives all confirmed deliveries from the active Loot list, across all players. Their History records remain available.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    u.archiveCompleted:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    u.archiveHelp=text(u.history,"Delete History lets you select local records for removal.",11,20,-482,940)
     local loot=u.lootPanels.timer
     loot.pageLabel:SetWidth(135)
     u.itemToolsButton=button(loot.window,"Add loot",255,-365,145,function() if A:IsMaster() then u.itemTools:Show() end end)
@@ -421,7 +461,7 @@ end
 function A:RefreshSettingsDropdowns()
     local u=self.ui;if not u then return end
     for _,control in ipairs(u.settingsDropdownControls or {}) do
-        control.dropdownArrow:SetEnabled(control:IsEnabled())
+        control.dropdownArrow:SetEnabled(control:IsEnabled() and (not control.dropdownRequiresRoster or next(self.roster or {})~=nil))
         self:RefreshRailArrow(control.dropdownArrow)
     end
     if u.settingsDropdown and u.settingsDropdown.owner and (u.settingsDropdown.owner:IsEnabled()==false or not u.settingsDropdown.owner:IsVisible()) then self:CloseSettingsDropdown() end
@@ -621,7 +661,6 @@ function A:RenderRaidSetupSummary()
     local c=self:RaidSettings();local names={}
     for name in pairs(c.council) do names[#names+1]=name end
     table.sort(names)
-    local thresholds={[2]="Green+",[3]="Blue+",[4]="Epic+",[5]="Legendary only"}
     local profile=self.state and "Session configuration" or SanguineLootCouncilDB.raidSetup.profile or "Custom setup"
     local members={}
     for i=1,math.min(2,#names) do members[#members+1]=self:DisplayName(names[i]) end
@@ -629,9 +668,9 @@ function A:RenderRaidSetupSummary()
     u.raidSetupSummary:SetMaxLines(6)
     u.raidSetupSummary:SetText((self.state and "Active session" or "Next session").." | Profile: "..profile..
         "\nResponse timer: "..c.responseDuration.."s | Council: "..#names..
-        " | Collection: "..thresholds[c.lootConfiguration.minimum]..
+        " | Collection: "..(c.lootConfiguration.collection and "Quality Rules" or "Off")..
         "\nMaster Looter: "..(c.masterAutoSync and "Follow in-game role" or c.master or "You")..
-        " | Automatic assignment: "..(c.lootConfiguration.automatic and "On" or "Off")..
+        " | Automatic awards: "..(c.lootConfiguration.automatic and "On" or "Off")..
         "\n"..memberSummary)
 end
 
@@ -647,7 +686,7 @@ function A:RenderSettingsPresentation()
     switchValue(u.selfVotes,self:RaidSettings().selfVotes)
     local cfg=self:WarningSettings();switchValue(u.warningTrade,cfg.trade);switchValue(u.warningSound,cfg.sound);switchValue(u.lockWindows,self:WindowPositionsLocked());u.lockWindows:SetEnabled(true);u.resetWindows:SetEnabled(true)
     local rules=self:RaidSettings().rules
-    u.ruleLimit:SetText(rules.limit..(rules.limit==1 and " candidate" or " candidates"))
+    u.ruleLimit:SetText(rules.limit..(rules.limit==1 and " Candidate" or " Candidates"))
     local labels={immediate="Immediately",own="After your vote",closed="After award"}
     u.ruleVisibility:SetText(labels[rules.visibility] or "After award")
     u.ruleNames:SetText(rules.names and "Show voter names" or "Totals only")
@@ -854,7 +893,7 @@ function A:RenderMasterSettings()
     local name,status=self:ReadGameMaster()
     local message
     if not s then
-        message=following and "Raid setup: follow the in-game Master Looter when the session starts." or ("Raid setup: manual Master Looter "..(self:RaidSettings().master or "you")..". Absent players are checked at start.")
+        message=""
     elseif self.demo then message="Test master looter: "..s.master.." — in-game role syncing is disabled in tests."
     elseif s.masterBlocked then message="Waiting for a readable in-game master looter; loot actions are paused."
     elseif s.masterAutoSync and s.masterSource=="game" then message="Current master looter: "..s.master.." (following in-game role)"
@@ -862,4 +901,5 @@ function A:RenderMasterSettings()
         message="Addon master: "..s.master..(status=="none" and " — no in-game master-loot method is selected." or " — in-game role unavailable; using addon assignment.")
     else message="Current master looter: "..s.master.." (manual addon assignment)" end
     self.ui.masterStatus:SetText(message)
+    self.ui.masterStatus:SetShown(message~="")
 end

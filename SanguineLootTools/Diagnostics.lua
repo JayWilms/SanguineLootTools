@@ -53,7 +53,7 @@ function A:DiagnosticReport()
     lines[#lines+1]="Clocks: "..(self.Client:ClockReady() and "available" or "unavailable; mutations disabled")
     lines[#lines+1]="Active: "..#(self.state and self.state.items or {}).." items / "..#(self.state and self.state.trackedLoot or {}).." copies | archived this session "..(self.state and self.state.archivedCount or 0)
     local loot=self:LootConfiguration()
-    lines[#lines+1]="Session: "..(self.state and (self.demo and "test" or "normal") or "none").." | automatic collection: "..(self.state and self.state.autoCollect~=false and loot.collection and "on" or "off").." | automatic assignment: "..(loot.automatic and "on" or "off").." | minimum quality: "..loot.minimum.." | green rule: "..loot.rules[3].action.." | blue rule: "..loot.rules[4].action
+    lines[#lines+1]="Session: "..(self.state and (self.demo and "test" or "normal") or "none").." | automatic collection: "..(self.state and self.state.autoCollect~=false and loot.collection and "on" or "off").." | automatic awards: "..(loot.automatic and "on" or "off").." | green rule: "..loot.rules[3].action.." | blue rule: "..loot.rules[4].action
     local nativeMaster,nativeStatus
     if self.ReadGameMaster then nativeMaster,nativeStatus=self:ReadGameMaster() end
     lines[#lines+1]="Master Loot routing: addon authority "..(self.state and self.state.masterBlocked and "blocked" or self:IsMaster() and "local" or "other").." | native status "..technical(nativeStatus).." | local native master "..(nativeMaster==self.me and "yes" or "no").." | corpse window "..(self.corpseOpen and "open" or "closed")

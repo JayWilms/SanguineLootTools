@@ -2,7 +2,7 @@ local _,A=...
 local qualities={"Grey • Poor","White • Common","Green • Uncommon","Blue • Rare","Purple • Epic","Orange • Legendary"}
 local qualityColours={"ff9d9d9d","ffffffff","ff1eff00","ff0070dd","ffa335ee","ffff8000"}
 for i,label in ipairs(qualities) do qualities[i]="|c"..qualityColours[i]..label.."|r" end
-local actions={ignore="Ignore",council="Collect for council",assign="Assign automatically"}
+local actions={ignore="Ignore",council="Collect for council",assign="Auto-award to recipient"}
 local reasonLabels={Disenchant="Disenchanted",["Guild Bank"]="Guild Bank",Other="Other"}
 function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,section,row,switch)
     local content=u.settingsPages["Loot Configuration"].content
@@ -18,23 +18,20 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
     local collection=group("collection","Collection")
     switch(u.lootPanels.timer.auto)
     u.lootPanels.timer.auto:SetScript("OnClick",function() local c=A:LootConfiguration();c.collection=not c.collection;A:SaveLootConfiguration(c) end)
-    row(collection,"Automatic collection","Collect council loot into the Master Looter's bags and detect eligible pickups. Existing tracking keeps refreshing.",0,u.lootPanels.timer.auto,76)
-    u.lootMinimum=button(collection,"",0,0,180,function() end)
-    dropdown(u.lootMinimum,{{"Green and above",2},{"Blue and above",3},{"Epic and above",4},{"Legendary only",5}},function(v) local c=A:LootConfiguration();c.minimum=v;A:SaveLootConfiguration(c) end)
-    row(collection,"Council collection threshold","Applies to Collect for council rules, including items with a trade timer.",72,u.lootMinimum)
+    row(collection,"Automatic Collection","Follow the Quality Rules below to collect eligible loot. Council items go to the Master Looter for voting.",0,u.lootPanels.timer.auto,76)
     u.lootOpen=button(collection,"",0,0,76,function() local c=A:LootConfiguration();c.openWindow=not c.openWindow;A:SaveLootConfiguration(c) end);switch(u.lootOpen)
     row(collection,"Open Loot on discovery","Open the Loot window when new items arrive. Tracking continues when disabled.",144,u.lootOpen,76)
     u.lootAutomatic=button(collection,"",0,0,76,function() local c=A:LootConfiguration();c.automatic=not c.automatic;A:SaveLootConfiguration(c) end);switch(u.lootAutomatic)
-    row(collection,"Automatic assignment","Requires a recipient and reason for each Assign automatically rule. Starts off.",216,u.lootAutomatic,76)
-    u.lootRoutingStatus=text(collection,"",11,0,-285,690);position(u.lootRoutingStatus,collection,0,285,function(w) return w end,44)
+    row(collection,"Automatic Awards","Items set to Auto-award to recipient go straight to that player, without a council vote. Set a recipient and reason first.",72,u.lootAutomatic,76)
+    u.lootRoutingStatus=text(collection,"",11,0,-213,690);position(u.lootRoutingStatus,collection,0,213,function(w) return w end,44);u.lootRoutingStatus:Hide()
     local rules=group("rules","Quality Rules • Raid Leader Only")
     u.lootQualityRows={}
     for i=1,6 do
         local index=i;local r={};u.lootQualityRows[i]=r
         r.title=text(rules,qualities[i],12,0,0,170)
         r.action=button(rules,"",0,0,180,function() end)
-        dropdown(r.action,{{"Ignore","ignore"},{"Collect for council","council"},{"Assign automatically","assign"}},function(value) local c=A:LootConfiguration();c.rules[index].action=value
-            if value=="assign" and c.automatic and (c.rules[index].target=="" or c.rules[index].reason=="") then c.automatic=false;A:Print("Automatic assignment paused. Choose the recipient and reason, then enable it again.") end
+        dropdown(r.action,{{"Ignore","ignore"},{"Collect for council","council"},{actions.assign,"assign"}},function(value) local c=A:LootConfiguration();c.rules[index].action=value
+            if value=="assign" and c.automatic and (c.rules[index].target=="" or c.rules[index].reason=="") then c.automatic=false;A:Print("Automatic awards paused. Choose the recipient and reason, then enable them again.") end
             A:SaveLootConfiguration(c) end)
         r.recipient=button(rules,"",0,0,230,function() end)
         dropdown(r.recipient,function()
@@ -47,7 +44,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
         r.reason=button(rules,"Edit reason",0,0,100,function() A:OpenLootReason(index) end)
         r.help=text(rules,"",11,0,0,690);r.help:SetMaxLines(2);r.help:SetHeight(30)
     end
-    u.lootReason=window("SanguineLootToolsLootReason","Automatic Assignment Reason",560,310,true)
+    u.lootReason=window("SanguineLootToolsLootReason","Automatic Award Reason",560,310,true)
     u.lootReasonTitle=text(u.lootReason,"",14,20,-50,520)
     u.lootReasonPreset=button(u.lootReason,"Choose a reason",20,-85,250,function() end)
     dropdown(u.lootReasonPreset,{{"Disenchanted","Disenchant"},{"Guild Bank","Guild Bank"},{"Other","Other"}},function(value) u.lootReasonChoice=value;u.lootReasonPreset:SetText(reasonLabels[value] or value) end)
@@ -83,7 +80,7 @@ function A:LayoutLootConfiguration()
     local function at(o,x,top,w,h) o:ClearAllPoints();o:SetPoint("TOPLEFT",x,-top);o:SetSize(w,h) end
     for _,key in ipairs({"collection","rules"}) do
         local g=u.lootConfigGroups[key];local open=u.lootConfigOpen[key]
-        local height=key=="collection" and 335 or 630
+        local height=key=="collection" and (u.lootRoutingStatus:IsShown() and 263 or 204) or 630
         at(g.header,0,y,body,36);at(g.arrow,body-35,1,34,34);g.title:SetWidth(body-55)
         self:SetRailArrowDirection(g.arrow,open and -1 or 1)
         at(g.body,0,y+46,body,height);g.body:SetShown(open);y=y+46+(open and height+16 or 0)
@@ -101,8 +98,6 @@ end
 function A:RenderLootConfigurationUI()
     local u=self.ui;if not u or not u.lootConfigGroups then return end
     local c=self:LootConfiguration();local editable=self:CanConfigureRaid()
-    local labels={[2]="Green and above",[3]="Blue and above",[4]="Epic and above",[5]="Legendary only"}
-    u.lootMinimum:SetText(labels[c.minimum]);u.lootMinimum:SetEnabled(editable)
     self:SetSettingsToggle(u.lootOpen,c.openWindow);u.lootOpen:SetEnabled(editable)
     self:SetSettingsToggle(u.lootAutomatic,c.automatic);u.lootAutomatic:SetEnabled(editable)
     local pending,failed=0,0
@@ -110,8 +105,11 @@ function A:RenderLootConfigurationUI()
         if intent.failed or (not intent.finished and self.Client:ServerTime()-intent.time>60) then failed=failed+1
         elseif not intent.finished then pending=pending+1 end
     end
-    local summary=(pending>0 or failed>0) and (" | Corpse assignments: "..pending.." awaiting verification, "..failed.." unresolved") or ""
-    u.lootRoutingStatus:SetText((editable and "Raid Leader controls" or "View only • Raid Leader controls").." | "..(self.demo and "Test mode: physical distribution disabled" or self.lootRoutingStatus or (c.collection and "Council collection enabled; eligible loot goes to the Master Looter unawarded" or c.automatic and "Automatic assignment enabled" or "Automatic collection and assignment off"))..summary)
+    local summary=(pending>0 or failed>0) and ("Corpse assignments: "..pending.." awaiting verification, "..failed.." unresolved") or ""
+    local status=self.demo and "Test mode: physical distribution disabled" or self.lootRoutingStatus or ""
+    if summary~="" then status=status~="" and (status.." | "..summary) or summary end
+    u.lootRoutingStatus:SetText(status)
+    u.lootRoutingStatus:SetShown(status~="")
     for i,row in ipairs(u.lootQualityRows) do
         local r=c.rules[i];row.action:SetText(actions[r.action]);row.action:SetEnabled(editable)
         row.recipient:SetText(r.action=="council" and "Current Master Looter" or r.target=="@master" and "Current Master Looter" or r.target~="" and r.target or "Choose recipient")

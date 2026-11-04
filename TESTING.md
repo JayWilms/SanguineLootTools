@@ -1,3 +1,42 @@
+## Alpha.59: Quality Rules replace the minimum threshold
+
+- Minimum Quality for Council Loot is removed. Each quality's Ignore, Collect for council or Auto-award to recipient rule is now authoritative; old minimum values are ignored when loading saved configuration/profiles.
+- Automatic Collection enables council collection. Automatic Awards independently enables direct awards to configured recipients. An auto-award rule with awards off must not fall back to council collection.
+- Verify green/blue council rules work even with a formerly higher saved minimum, Ignore never creates new collection, and switching either automation off affects only its corresponding action. The game's Master Loot limits and normal safety checks still apply.
+- Fresh defaults preserve the previous effective epic/legendary council collection by setting lower-quality rules to Ignore. Existing configured quality rules are preserved, so review them before enabling collection.
+- Alpha.59 uses protocol 17 for the changed configuration schema. Update all raid members together and start a fresh session; do not resume an alpha.58/protocol-16 session.
+
+## Alpha.59: Clearer Loot Configuration wording
+
+- Quality Rule headings retain their standard item-quality colours. The separate minimum-quality dropdown is retired; see the rules-only checks above.
+- Automatic Collection explains that collection follows the Quality Rules and council loot goes to the Master Looter for voting.
+- Automatic Assignment is now Automatic Awards. Assign automatically is displayed as Auto-award to recipient, with clear wording that this gives loot to the selected player without a council vote and requires a recipient and reason. Only presentation changes; routing and award behavior remain unchanged.
+- Hide the repeated default Raid Leader/collection-enabled status line and reclaim its space. Actual routing progress, unresolved/failed deliveries and test-mode notices remain visible when applicable.
+- Check quality colours, both switch states, rule action/recipient menus, collapsed sections and layout with/without a routing notice.
+
+## Alpha.59: History controls and deletion
+
+- Sync History sits at the bottom right. Archive completed loot moves to the upper control row so the actions do not overlap; archive behavior is unchanged.
+- Delete History sits at the bottom left with a crimson background/highlight. It enters a selection mode where row clicks select entries in crimson instead of opening the audit. Normal row clicks still open audits outside deletion mode.
+- Use Select All Shown to select only the current search/player/Guild Bank results. Changing that view clears selection. Cancel leaves all records intact; closing History also exits the mode.
+- Delete Selected opens a count confirmation explaining that deletion is local and active sessions or History sync may restore records. Confirm deletes only the selected unchanged records. Newer corrections/delivery records and entries added after the prompt remain.
+- Sync and deletion modes cannot run simultaneously. Test empty History, select/unselect, bulk filtered deletion, cancellation/replayed prompts, window resizing, and normal audit/tooltips after leaving deletion mode.
+
+## Alpha.59: Compact History audit and inline search guidance
+
+- History audit opens at a compact 620-pixel width and fits its text vertically (160–340 pixels tall). Long corrections/delivery logs remain available through scrolling, with no audit details removed.
+- Open short, richly corrected and archived records; check text wrapping, full scroll access, return to the top and shrinking again for a short record. Previous oversized saved geometry must not override the compact size.
+- The empty search bar shows Name, Date (DD/MM/YYYY), Item and Shift-click linking guidance directly inside the field. The hover tooltip is removed. Typing hides the guidance; clearing restores it.
+- Check minimum/default History widths and ensure search by name/date/item/link and the My Rewards/Guild Bank scopes still work.
+
+## Alpha.59: Master Looter field and candidate labels
+
+- The gold Manual Assignment section is now Master Looter. The repeated idle raid-setup status line is removed; active-session status and blocked-loot warnings remain visible below the Follow setting.
+- Master Looter selection is one editable field with an internal roster arrow and placeholder. Turn off Follow in-game Master Looter to type a Name-Realm or select a raid member, then click Assign. Typing remains available while solo; the arrow is disabled when there are no roster members.
+- Test empty/typed/selected text, placeholder restoration, dropdown scrolling, full realm identities, stale roster choices, lost permissions, Follow on/off and explicit Assign. Remove the separate roster selector below the field.
+- Voting rules show Candidates per item; dropdown/current value use 1 Candidate, 2 Candidates and 3 Candidates. The voting limit itself is unchanged.
+- Check idle/live/test-session notices, compact Council spacing, long council lists and minimum/default/maximum window sizes.
+
 ## Alpha.58: Settings headings and spacing
 
 - Gold section/field headings use a capital at the start of every word, including Saved Raid Profiles, Profile Name, Council Membership, Voting Rules, Raid Response Choices and Quality Rules.

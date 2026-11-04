@@ -113,3 +113,92 @@ assert(A.historySearch=='no such item')
 assert(#SanguineLootCouncilDB.history==6)
 ''')
 print('Guild Bank search, legacy classification, reward exclusion, view switching, return labels and audit retention pass.')
+
+# The real audit display should fit short records, cap long records and keep
+# their entire content scrollable, without changing the retained award data.
+audit=LuaRuntime(unpack_returned_tuples=True)
+audit.execute('A={}')
+audit.execute((root/'SanguineLootTools/History.lua').read_text(),'SanguineLootTools',audit.globals().A)
+audit.execute('''
+local function frame()
+ return {SetSize=function(s,w,h) s.width=w;s.height=h end,SetHeight=function(s,h) s.height=h end,
+ SetVerticalScroll=function(s,v) s.offset=v end,Show=function(s) s.shown=true end}
+end
+local label={SetText=function(s,v) s.value=v end,GetStringHeight=function() return measured end}
+A.ui={auditText=label,awardAudit=frame(),auditScroll=frame(),auditChild=frame()}
+A.BuildUI=function() end
+A.FormatAwardHistory=function(_,record) return record.text end
+local record={text='Recorded award and complete audit',winner='Moon-Realm'}
+measured=60
+A:ShowAwardAudit(record)
+assert(A.ui.awardAudit.width<780 and A.ui.awardAudit.height<=220)
+assert(A.ui.auditText.value==record.text and A.ui.auditChild.height>=measured)
+assert(A.ui.auditScroll.offset==0 and A.ui.awardAudit.shown)
+local shortHeight=A.ui.awardAudit.height
+measured=1000;record.archivedAt=123
+A.ui.auditScroll.offset=500
+A:ShowAwardAudit(record)
+assert(A.ui.awardAudit.height<=340 and A.ui.awardAudit.height>shortHeight)
+assert(A.ui.auditChild.height>A.ui.auditScroll.height and A.ui.auditChild.height>=measured)
+assert(A.ui.auditText.value:find(record.text,1,true) and A.ui.auditText.value:find('Archived:',1,true))
+assert(A.ui.auditScroll.offset==0)
+measured=30;record.archivedAt=nil
+A:ShowAwardAudit(record)
+assert(A.ui.awardAudit.height<=shortHeight and A.ui.auditText.value==record.text)
+assert(record.winner=='Moon-Realm' and record.text=='Recorded award and complete audit')
+''')
+print('Audit sizing fits short records, bounds long records and retains full scrollable audit text.')
+
+# Deletion is opt-in, selection-scoped and local. It must not turn ordinary
+# audit clicks into deletes, accept stale confirmations or remove newer awards.
+delete=LuaRuntime(unpack_returned_tuples=True)
+delete.execute('''
+A={confirmationDialogs={}}
+function A.Copy(v) if type(v)~='table' then return v end;local r={};for k,x in pairs(v) do r[k]=A.Copy(x) end;return r end
+function A:InitStorage() end
+function A:Print(message) self.lastMessage=message end
+function A:ShowAwardAudit(record) self.openedAudit=record end
+function A:ShowConfirmation(kind,count) self.dialog={kind=kind,count=count};return self.dialog end
+SanguineLootCouncilDB={history={
+ {key='a',winner='Moon-Realm',item='item:1',revision=1,deliveryRevision=0},
+ {key='b',winner='Zergul-Realm',item='item:2',revision=1,deliveryRevision=0},
+ {key='bank',winner='Bank-Realm',item='item:3',awardReason='Guild Bank',revision=1,deliveryRevision=0}}}
+''')
+delete.execute((root/'SanguineLootTools/History.lua').read_text(),'SanguineLootTools',delete.globals().A)
+delete.execute('''
+-- Override just the audit UI entry point after loading the real click handler.
+function A:ShowAwardAudit(record) self.openedAudit=record end
+local a,b,bank=SanguineLootCouncilDB.history[1],SanguineLootCouncilDB.history[2],SanguineLootCouncilDB.history[3]
+A:ClickHistoryRecord(a);assert(A.openedAudit==a and #SanguineLootCouncilDB.history==3)
+A.historySync={}
+assert(not A:BeginHistoryDeletion())
+A.historySync=nil
+assert(A:BeginHistoryDeletion())
+A:RenderHistoryDeletion({a,b},'all')
+A:ClickHistoryRecord(a)
+assert(A:HistoryDeleteCount()==1 and A.openedAudit==a)
+A:ClickHistoryRecord(a);assert(A:HistoryDeleteCount()==0)
+A:SelectShownHistory();assert(A:HistoryDeleteCount()==2)
+assert(#SanguineLootCouncilDB.history==3,'selection deleted records before confirmation')
+assert(A:ReviewHistoryDeletion());local canceled=A.dialog.data
+A:CancelHistoryDeletion()
+assert(not A:ConfirmHistoryDeletion(canceled) and #SanguineLootCouncilDB.history==3)
+-- Switching filters clears selection, so hidden records cannot be deleted by mistake.
+A:BeginHistoryDeletion();A:RenderHistoryDeletion({a,b},'all');A:SelectShownHistory()
+A:RenderHistoryDeletion({bank},'guild-bank');assert(A:HistoryDeleteCount()==0)
+A:SelectShownHistory();assert(A:ReviewHistoryDeletion())
+A.confirmationDialogs.SANGUINELOOTCOUNCIL_DELETE_HISTORY.OnAccept(A.dialog)
+assert(#SanguineLootCouncilDB.history==2 and not A.historyDeleteMode)
+assert(SanguineLootCouncilDB.history[1]==a and SanguineLootCouncilDB.history[2]==b)
+-- Updated records and records added after the prompt survive confirmation.
+A:BeginHistoryDeletion();A:RenderHistoryDeletion({a,b},'all');A:SelectShownHistory()
+assert(A:ReviewHistoryDeletion());local context=A.dialog.data
+b.revision=2;b.winner='NewWinner-Realm'
+SanguineLootCouncilDB.history[3]={key='new',winner='Late-Realm',revision=1}
+A:ConfirmHistoryDeletion(context)
+assert(#SanguineLootCouncilDB.history==2)
+assert(SanguineLootCouncilDB.history[1].key=='b' and SanguineLootCouncilDB.history[2].key=='new')
+assert(A.lastMessage:find('1 changed record(s) were kept',1,true))
+assert(not A:ConfirmHistoryDeletion(context),'confirmation replay was accepted')
+''')
+print('Normal audit clicks, opt-in deletion, filter selection, cancellation, confirmation and newer-record guards pass.')

@@ -35,7 +35,8 @@ function A.Client:Combat() return false end
 A.me='Holder-Realm';A.leader=A.me;A.roster={[A.me]='player'}
 A.state={id='real-raid-session',leader=A.me,master=A.me,items={},trackedLoot={},autoCollect=true,
  council={[A.me]=true},lootConfiguration=A:DefaultLootConfiguration()}
-A.state.lootConfiguration.minimum=2
+A.state.lootConfiguration.rules[3].action='council'
+A.state.lootConfiguration.rules[4].action='council'
 A.PruneActiveCaches=nil;A.PersistSession=nil;A.Render=nil
 function A:Act(op,p)
     reports=reports+1
@@ -117,7 +118,7 @@ for name,alter,message,wait in [
  ('someone_elses_loot','A:Changed()',False,0),
  ('expired_pickup','A:Changed()',True,31),
  ('disabled_collection','A:Changed();A.state.autoCollect=false',True,0),
- ('below_threshold','A:Changed();A.state.lootConfiguration.minimum=4',True,0),
+ ('auto_awards_disabled',"A:Changed();A.state.lootConfiguration.rules[3]={action='assign',target='Holder-Realm',reason='Guild Bank',note=''};A.state.lootConfiguration.automatic=false",True,0),
  ('ignored_green','A:Changed();A.state.lootConfiguration.rules[3].action="ignore"',True,0),
  ('test_mode','A:Changed();A.demo=true',True,0),
  ('outside_raid','A:Changed();function A.Client:InRaid() return false end',True,0),

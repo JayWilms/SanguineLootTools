@@ -181,18 +181,22 @@ function A:RenderVotingHistory()
 end
 
 function A:BuildAuditUI(u,window,text)
-    u.awardAudit=window("SanguineLootCouncilAwardAudit","Recorded award audit (read-only)",780,570)
+    u.awardAudit=window("SanguineLootCouncilAwardAudit","Recorded award audit (read-only)",620,220)
     local scroll=A:CreateScrollFrame(u.awardAudit)
-    scroll:SetPoint("TOPLEFT",20,-55);scroll:SetSize(720,475)
-    local child=CreateFrame("Frame",nil,scroll);child:SetSize(695,475);scroll:SetScrollChild(child)
-    u.auditText=text(child,"",12,0,0,690);u.auditText:SetJustifyV("TOP")
+    scroll:SetPoint("TOPLEFT",20,-55);scroll:SetSize(560,145)
+    local child=CreateFrame("Frame",nil,scroll);child:SetSize(535,145);scroll:SetScrollChild(child)
+    u.auditText=text(child,"",12,0,0,530);u.auditText:SetJustifyV("TOP")
     u.auditChild,u.auditScroll=child,scroll
 end
 function A:ShowAwardAudit(record)
     if type(record)~="table" then return end
     self:BuildUI()
     self.ui.auditText:SetText(self:FormatAwardHistory(record)..(record.archivedAt and "\nArchived: read-only completed work." or ""))
-    self.ui.auditChild:SetHeight(math.max(475,self.ui.auditText:GetStringHeight()+25))
+    local textHeight=self.ui.auditText:GetStringHeight()
+    local height=math.max(160,math.min(340,textHeight+85))
+    self.ui.awardAudit:SetSize(620,height)
+    self.ui.auditScroll:SetHeight(height-75)
+    self.ui.auditChild:SetHeight(math.max(height-75,textHeight+10))
     self.ui.auditScroll:SetVerticalScroll(0);self.ui.awardAudit:Show()
 end
 
@@ -235,3 +239,99 @@ function A:CaptureHistoryLink(link)
     u.historySearch:SetCursorPosition(#link)
     return true
 end
+
+function A:HistoryDeleteCount()
+    local count=0
+    for _ in pairs(self.historyDeleteSelection or {}) do count=count+1 end
+    return count
+end
+function A:RefreshHistorySelection()
+    if self.ui and self.ui.history and self.ui.history:IsShown() then self:ShowHistory(self.historyFilter,self.historyGuildBank) end
+end
+function A:BeginHistoryDeletion()
+    if self.historySync then self:Print("Wait for History sync to finish before deleting records.");return false end
+    if self.ui and self.ui.awardAudit then self.ui.awardAudit:Hide() end
+    self.historyDeleteMode=true
+    self.historyDeleteSelection={};self.historyDeleteViewKey=nil
+    self.historyDeleteToken=(self.historyDeleteToken or 0)+1
+    self:RefreshHistorySelection()
+    return true
+end
+function A:CancelHistoryDeletion(refresh)
+    self.historyDeleteMode=nil;self.historyDeleteSelection={};self.historyDeleteViewKey=nil
+    self.historyDeleteToken=(self.historyDeleteToken or 0)+1
+    if refresh~=false then self:RefreshHistorySelection() end
+end
+function A:ClickHistoryRecord(record)
+    if not record then return end
+    if not self.historyDeleteMode then self:ShowAwardAudit(record);return end
+    if type(record.key)~="string" then return end
+    self.historyDeleteSelection[record.key]=not self.historyDeleteSelection[record.key] or nil
+    self:RefreshHistorySelection()
+end
+function A:SelectShownHistory()
+    if not self.historyDeleteMode then return end
+    for _,record in ipairs(self.historyVisibleRecords or {}) do
+        if type(record.key)=="string" then self.historyDeleteSelection[record.key]=true end
+    end
+    self:RefreshHistorySelection()
+end
+function A:RenderHistoryDeletion(records,viewKey)
+    self.historyVisibleRecords=records
+    if self.historyDeleteMode and self.historyDeleteViewKey~=viewKey then
+        self.historyDeleteSelection={};self.historyDeleteViewKey=viewKey
+        self.historyDeleteToken=(self.historyDeleteToken or 0)+1
+    end
+    local u=self.ui
+    if not u or not u.historyDelete then return end
+    local count=self:HistoryDeleteCount()
+    u.historyDelete:SetText(self.historyDeleteMode and ("Delete Selected ("..count..")") or "Delete History")
+    u.historyDelete:SetEnabled(not self.historySync and (not self.historyDeleteMode or count>0))
+    u.historySelectAll:SetShown(self.historyDeleteMode==true)
+    u.historySelectAll:SetEnabled(#records>0)
+    u.historyDeleteCancel:SetShown(self.historyDeleteMode==true)
+    if u.archiveHelp then u.archiveHelp:SetText(self.historyDeleteMode
+        and "Select rows, then Delete Selected. Deletion is local; sessions or sync may restore records."
+        or "Delete History lets you select local records for removal.") end
+end
+function A:ReviewHistoryDeletion()
+    if not self.historyDeleteMode or self.historySync then return false end
+    self:InitStorage()
+    local snapshots,count={},0
+    for _,record in ipairs(SanguineLootCouncilDB.history) do
+        if self.historyDeleteSelection[record.key] then snapshots[record.key]=self.Copy(record);count=count+1 end
+    end
+    if count==0 then return false end
+    local dialog=self:ShowConfirmation("SANGUINELOOTCOUNCIL_DELETE_HISTORY",tostring(count))
+    if dialog then dialog.data={token=self.historyDeleteToken,records=snapshots} end
+    return dialog~=nil
+end
+local function unchangedHistory(record,snapshot)
+    for _,key in ipairs({"key","item","winner","time","revision","deliveryRevision","archivedAt","response","responseLabel","votes","quantity","quality"}) do
+        if record[key]~=snapshot[key] then return false end
+    end
+    return true
+end
+function A:ConfirmHistoryDeletion(context)
+    if not self.historyDeleteMode or self.historySync or type(context)~="table" or context.token~=self.historyDeleteToken
+        or type(context.records)~="table" then return false end
+    self:InitStorage()
+    local removed,changed=0,0
+    for i=#SanguineLootCouncilDB.history,1,-1 do
+        local record=SanguineLootCouncilDB.history[i];local snapshot=context.records[record.key]
+        if snapshot then
+            if unchangedHistory(record,snapshot) then table.remove(SanguineLootCouncilDB.history,i);removed=removed+1
+            else changed=changed+1 end
+        end
+    end
+    self:CancelHistoryDeletion()
+    self:Print("Deleted "..removed.." local History record(s)."..(changed>0 and (" "..changed.." changed record(s) were kept.") or ""))
+    if self.ui and self.ui.playerHistory then self:RenderCandidateHistory() end
+    return true
+end
+A.confirmationDialogs=A.confirmationDialogs or {}
+A.confirmationDialogs["SANGUINELOOTCOUNCIL_DELETE_HISTORY"]={
+    text="Delete %s selected History record(s) from this installation?\n\nActive sessions or History sync may restore these records. Current loot and trade tracking are unaffected.",
+    button1="Delete Selected",button2="Cancel",timeout=0,whileDead=true,hideOnEscape=true,
+    OnAccept=function(dialog) A:ConfirmHistoryDeletion(dialog.data) end,
+}

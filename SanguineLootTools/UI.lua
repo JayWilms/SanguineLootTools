@@ -632,16 +632,8 @@ function A:BuildUI()
     placeholder:SetPoint("LEFT",8,0);placeholder:SetPoint("RIGHT",-8,0)
     placeholder:SetJustifyH("LEFT");placeholder:SetMaxLines(1)
     placeholder:SetTextColor(0.50,0.52,0.55)
-    placeholder:SetText("Search name, date or item…")
+    placeholder:SetText("Search: Name, Date (DD/MM/YYYY), or Item — Shift-click an item to link")
     u.historySearch.placeholder=placeholder
-    u.historySearch:SetScript("OnEnter",function(box)
-        GameTooltip:SetOwner(box,"ANCHOR_RIGHT")
-        GameTooltip:AddLine("Search History",1,0.8,0.4)
-        GameTooltip:AddLine("Search by player name, item name, or date (DD/MM/YYYY).",1,1,1,true)
-        GameTooltip:AddLine("Shift-click an item while this field is focused to search by its item link.",1,1,1,true)
-        GameTooltip:Show()
-    end)
-    u.historySearch:SetScript("OnLeave",function() GameTooltip:Hide() end)
     u.historySearch:SetScript("OnTextChanged",function(box)
         box.placeholder:SetShown(box:GetText()=="")
         A.historySearch=box:GetText();u.historyScroll:SetVerticalScroll(0)
@@ -654,7 +646,7 @@ function A:BuildUI()
     u.historyGuildBank=button(h,"Guild Bank",195,-132,165,function()
         A:ShowHistory(nil,not A.historyGuildBank)
     end)
-    u.historySync=button(h,"Sync History",370,-132,130,function() A:StartHistorySync() end)
+    u.historySync=button(h,"Sync History",810,-510,130,function() A:StartHistorySync() end)
     u.historySync:SetScript("OnEnter",function(b)
         GameTooltip:SetOwner(b,"ANCHOR_RIGHT")
         GameTooltip:AddLine("Sync History",1,0.8,0.4)
@@ -663,7 +655,18 @@ function A:BuildUI()
         GameTooltip:Show()
     end)
     u.historySync:SetScript("OnLeave",function() GameTooltip:Hide() end)
-    u.historySyncStatus=text(h,"",10,510,-136,430);u.historySyncStatus:SetHeight(32);u.historySyncStatus:SetMaxLines(2)
+    u.historySyncStatus=text(h,"",10,610,-136,330);u.historySyncStatus:SetHeight(32);u.historySyncStatus:SetMaxLines(2)
+    u.historyDelete=button(h,"Delete History",20,-510,170,function()
+        if A.historyDeleteMode then A:ReviewHistoryDeletion() else A:BeginHistoryDeletion() end
+    end)
+    u.historyDelete:SetBackdropColor(.20,.055,.08,1)
+    u.historyDelete:SetBackdropBorderColor(.50,.15,.20,1)
+    u.historyDelete:GetHighlightTexture():SetVertexColor(.50,.15,.20,.55)
+    u.historyDelete:GetPushedTexture():SetVertexColor(.35,.05,.10,1)
+    u.historySelectAll=button(h,"Select All Shown",200,-510,145,function() A:SelectShownHistory() end)
+    u.historyDeleteCancel=button(h,"Cancel",355,-510,85,function() A:CancelHistoryDeletion() end)
+    u.historySelectAll:Hide();u.historyDeleteCancel:Hide()
+    h:HookScript("OnHide",function() A:CancelHistoryDeletion(false) end)
     u.historyColumns={{"Name",0,150},{"Date",155,90},{"Time",250,75},{"Item",330,410},{"Response",745,155}}
     for _,col in ipairs(u.historyColumns) do col.heading=text(h,col[1],11,20+col[2],-82,col[3]);col.heading:SetTextColor(0.80,0.74,0.57) end
     u.historyRows={}
@@ -1078,7 +1081,7 @@ function A:RenderVotingStatus()
     u.toggleCouncil:SetEnabled(self:RaidMemberPickerEditable("council"))
     u.loadProfile:SetEnabled(editable and not self.demo)
     for _, control in ipairs({u.ruleLimit, u.ruleVisibility, u.ruleNames}) do control:SetEnabled(editable) end
-    u.ruleLimit:SetText("Candidates per council ballot: " .. rules.limit .. " (click to change)")
+    u.ruleLimit:SetText(rules.limit .. (rules.limit==1 and " Candidate" or " Candidates"))
     u.ruleVisibility:SetText("Reveal results: " .. labels[rules.visibility])
     u.ruleNames:SetText("Voter identities: " .. (rules.names and "Shown with revealed results" or "Totals only"))
     local item = s and self:ItemByID(self.selectedItem or 1)
@@ -1133,6 +1136,7 @@ function A:ShowHistory(player,guildBank)
     self.historyFilter,self.historyGuildBank = player,guildBank
     local lines = {}
     local records=self:FilterHistoryRecords(player,self.historySearch,guildBank)
+    self:RenderHistoryDeletion(records,tostring(player)..":"..tostring(guildBank)..":"..tostring(self.historySearch or ""))
     for i, h in ipairs(records) do
         local row=self.ui.historyRows[i]
         if not row then
@@ -1144,11 +1148,13 @@ function A:ShowHistory(player,guildBank)
             end
             row:SetScript("OnEnter",function(r) if r.record and r.record.item then GameTooltip:SetOwner(r,"ANCHOR_RIGHT");GameTooltip:SetHyperlink(r.record.item);GameTooltip:Show() end end)
             row:SetScript("OnLeave",function() GameTooltip:Hide() end)
-            row:SetScript("OnClick",function(r) A:ShowAwardAudit(r.record) end)
+            row:SetScript("OnClick",function(r) A:ClickHistoryRecord(r.record) end)
             self.ui.historyRows[i]=row
         end
         local values={tostring(h.winner or "Unknown"),date("%d/%m/%Y",h.time or 0),date("%H:%M:%S",h.time or 0),h.item or "Unknown item",h.responseLabel or self.responses[h.response] or "Unknown"}
         for j,value in ipairs(values) do row.cells[j]:SetText(value) end
+        if self.historyDeleteMode and self.historyDeleteSelection[h.key] then row.shade:SetColorTexture(.50,.15,.20,.45)
+        else row.shade:SetColorTexture(1,1,1,i%2==0 and .045 or .015) end
         row.record=h;row:Show()
         lines[#lines+1]=table.concat(values," | ")..(h.timeSource~="award" and " [time observed]" or "")
     end
@@ -1156,7 +1162,7 @@ function A:ShowHistory(player,guildBank)
     self.ui.historyMine:SetText(player==self.me and "Back to All Rewards" or "My Rewards")
     self.ui.historyGuildBank:SetText(guildBank and "Back to All Rewards" or "Guild Bank")
     if self.RenderHistorySyncUI then self:RenderHistorySyncUI() end
-    self.ui.historyScope:SetText((guildBank and "Guild Bank" or player and ("Player: "..player) or "All players").." | "..#records.." recorded awards; latest 500 retained. Click a row for audit.")
+    self.ui.historyScope:SetText((guildBank and "Guild Bank" or player and ("Player: "..player) or "All players").." | "..#records.." recorded awards; latest 500 retained."..(self.historyDeleteMode and (" Delete mode: "..self:HistoryDeleteCount().." selected. Click rows to select.") or " Click a row for audit."))
     self.ui.historyText:SetText(#lines > 0 and table.concat(lines, "\n") or "No local records for this selection. This does not mean the player has never received loot.")
     if not self.ui.historyEmpty then self.ui.historyEmpty=text(self.ui.historyChild,"No recorded awards for this selection.",12,0,-8,890) end
     self.ui.historyEmpty:SetShown(#records==0)

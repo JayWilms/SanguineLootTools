@@ -212,8 +212,34 @@ for cycle=1,3 do
     A:OpenSettingsDropdown(owner,{{'Totals only',false},{'Show voter names',true}},function(v) picked=v end)
     menu.rows[1]:Click();assert(picked==false)
 end
--- The collection threshold can be changed, reopened, and restored too.
-A.ui.lootMinimum:Click();menu.rows[1]:Click();assert(A:LootConfiguration().minimum==2)
-A.ui.lootMinimum:Click();menu.rows[3]:Click();assert(A:LootConfiguration().minimum==4)
 ''')
-print('Repeated action/threshold changes, conditional recipient controls, 42-choice scrolling, direct mouse layers and boolean selections passed.')
+print('Repeated action changes, conditional recipient controls, 42-choice scrolling, direct mouse layers and boolean selections passed.')
+
+# Operational notices must survive removal of the redundant status sentence
+# and retirement of the minimum-quality selector.
+lua=setup()
+lua.execute('''
+function A:SetSettingsToggle() end
+function A:LayoutLootConfiguration() end
+A.Client={ServerTime=function() return 1000 end}
+A:RenderLootConfigurationUI()
+assert(A.ui.lootMinimum==nil,'retired threshold selector remains')
+assert(not A.ui.lootRoutingStatus:IsShown())
+A.lootRoutingStatus='Native Master Loot APIs unavailable'
+A:RenderLootConfigurationUI()
+assert(A.ui.lootRoutingStatus:IsShown() and A.ui.lootRoutingStatus:GetText()==A.lootRoutingStatus)
+A.lootRoutingStatus=nil
+A.state={corpseRoutes={{time=995}}}
+A:RenderLootConfigurationUI()
+assert(A.ui.lootRoutingStatus:IsShown() and A.ui.lootRoutingStatus:GetText():find('1 awaiting verification',1,true))
+A.state.corpseRoutes[1].failed=true
+A:RenderLootConfigurationUI()
+assert(A.ui.lootRoutingStatus:GetText():find('1 unresolved',1,true))
+A.state=nil;A.demo=true
+A:RenderLootConfigurationUI()
+assert(A.ui.lootRoutingStatus:IsShown() and A.ui.lootRoutingStatus:GetText():find('Test mode:',1,true))
+A.demo=nil
+A:RenderLootConfigurationUI()
+assert(not A.ui.lootRoutingStatus:IsShown())
+''')
+print('Retired threshold stays absent; routing warnings, progress and test-mode notices remain visible.')

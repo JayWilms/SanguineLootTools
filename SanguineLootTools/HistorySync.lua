@@ -150,8 +150,9 @@ function A:RenderHistorySyncUI()
     local u=self.ui
     if not u or not u.historySync then return end
     u.historySync:SetText(self.historySync and "Syncing…" or "Sync History")
-    u.historySync:SetEnabled(not self.historySync and self.Client:InGroup() and self:CanStartHistorySync(self.me))
+    u.historySync:SetEnabled(not self.historySync and not self.historyDeleteMode and self.Client:InGroup() and self:CanStartHistorySync(self.me))
     u.historySyncStatus:SetText(self.historySyncMessage or "")
+    if u.historyDelete then u.historyDelete:SetEnabled(not self.historySync and (not self.historyDeleteMode or self:HistoryDeleteCount()>0)) end
 end
 
 function A:HistorySyncStatus(message)
@@ -162,6 +163,7 @@ end
 function A:StartHistorySync()
     self:InitStorage()
     if self.historySync then self:Print("History sync is already running.");return false end
+    if self.historyDeleteMode then self:Print("Finish or cancel History deletion before syncing.");return false end
     if self.demo or not self.Client:InGroup() or not self:CanStartHistorySync(self.me) then
         self:Print("Join a group as raid leader, master looter or configured council member to sync History.");return false
     end
@@ -259,7 +261,7 @@ function A:HistorySyncPacket(sender,p)
     local now=self.Client:Uptime()
     local s=self.historySync
     if p.op=="hello" then
-        if not self:CanStartHistorySync(sender) or s then return true end
+        if not self:CanStartHistorySync(sender) or s or self.historyDeleteMode then return true end
         if self.historySyncHelloAt and now-self.historySyncHelloAt<30 then return true end
         self.historySyncHelloAt=now
         local _,export,manifest=self:HistorySyncSnapshot()

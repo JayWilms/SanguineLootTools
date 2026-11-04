@@ -228,7 +228,7 @@ assert(next(old))
 A.nativeLoot=nil
 assert(A:NativeLootState().pending==old)
 ''')
-print('Pending native result persistence and protocol-16 evidence separation passed.')
+print('Pending native result persistence and native evidence separation passed.')
 
 # Council collection goes to the real ML, without choosing a winner or using
 # the final-assignment toggle. Actual bag GUIDs enter the ordinary council flow.
@@ -271,7 +271,6 @@ A:ScanLoot();assert(#A.state.trackedLoot==2,'repeated scan duplicated council lo
 print('Council loot collects into ML bags with assignment off; real GUIDs/timers remain queueable and unawarded, without collecting an old identical copy.')
 
 for change in ['A.state.lootConfiguration.collection=false',
-               'A.state.lootConfiguration.minimum=4',
                "A.state.lootConfiguration.rules[4].action='ignore'"]:
     lua=master()
     lua.execute('''
@@ -281,4 +280,4 @@ function GetMasterLootCandidate(slot,index) if index==1 then return 'Master-Real
 ''')
     lua.execute(change)
     lua.execute('A:TickLootConfiguration();assert(#gives==0)')
-print('Council collection respects its collection toggle, quality threshold and Ignore policy.')
+print('Council collection respects its collection toggle and Ignore policy.')

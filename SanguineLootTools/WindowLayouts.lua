@@ -445,12 +445,15 @@ function A:LayoutReadableWindow(frame)
         place(u.historySearch,20,98,math.min(560,w-60),26)
         place(u.historyMine,20,132,165,26)
         place(u.historyGuildBank,195,132,165,26)
-        place(u.historySync,370,132,130,26)
-        place(u.historySyncStatus,510,136,w-550,32)
+        place(u.historySync,w-170,h-50,130,28)
+        place(u.historyDelete,20,h-50,170,28)
+        place(u.historySelectAll,200,h-50,145,28)
+        place(u.historyDeleteCancel,355,h-50,85,28)
+        place(u.historySyncStatus,610,136,w-650,32)
         place(u.historyAll,w-165,45)
-        if u.archiveCompleted then place(u.archiveCompleted,w-240,h-50,220,28) end
-        if u.archiveHelp then place(u.archiveHelp,20,h-45,w-280,32);u.archiveHelp:SetMaxLines(2) end
-        u.historyScroll:ClearAllPoints();u.historyScroll:SetPoint("TOPLEFT",20,-194);u.historyScroll:SetPoint("BOTTOMRIGHT",-35,70)
+        if u.archiveCompleted then place(u.archiveCompleted,370,132,220,28) end
+        if u.archiveHelp then place(u.archiveHelp,20,h-78,w-40,18);u.archiveHelp:SetMaxLines(1) end
+        u.historyScroll:ClearAllPoints();u.historyScroll:SetPoint("TOPLEFT",20,-194);u.historyScroll:SetPoint("BOTTOMRIGHT",-35,95)
         for _,col in ipairs(cols) do place(col.heading,20+col[2],171,col[3]) end
         u.historyChild:SetWidth(w-55)
         for _,row in ipairs(u.historyRows) do

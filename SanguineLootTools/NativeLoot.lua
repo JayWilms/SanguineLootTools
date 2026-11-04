@@ -7,11 +7,11 @@ end
 local function itemID(link) return type(link)=="string" and link:match("item:(%d+)") end
 
 -- Council collection selects a holder, never an award winner. It uses the
--- collection switch/threshold independently of final automatic assignments.
+-- collection switch independently of final automatic assignments.
 function A:NativeLootPolicy(quality)
     local c=self:LootConfiguration()
     local rule=integer(quality,0,5) and c.rules[quality+1]
-    if rule and rule.action=="council" and c.collection and quality>=c.minimum then
+    if rule and rule.action=="council" and c.collection then
         return {action="council",target="@master"}
     end
     return self:AutomaticLootRule(quality)

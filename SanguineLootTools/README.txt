@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.58 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.59 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,34 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.58, protocol 16. Commands use /slt.
-Start a new normal raid session; do not resume an old protocol-15 session.
+Everyone testing together should use alpha.59, protocol 17. Commands use /slt.
+Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.58
+- Master Looter selection combines a typed Name-Realm and roster dropdown
+  in one field. Turn off Follow in-game Master Looter, choose/type a member,
+  then Assign. The repeated idle status line is removed.
+- Voting rules say Candidates per item, with 1 Candidate / 2 Candidates /
+  3 Candidates options. Voting behavior is unchanged.
+- History audit uses a compact, content-fitting popup with scrolling for
+  long records. Full search guidance, including DD/MM/YYYY and Shift-click
+  linking, appears in the empty field; its hover tooltip is removed.
+- Sync History moves to the bottom right. Crimson Delete History enters
+  row-selection mode; Select All Shown respects the current filters.
+  Delete Selected requires confirmation; Cancel leaves records intact.
+  Deletion is local: active sessions or sync may restore records.
+- Quality Rules directly control Ignore, Collect for council and Auto-award
+  to recipient. The separate minimum-quality threshold is removed.
+- Automatic Collection and Automatic Awards are adjacent, followed by
+  Open Loot on discovery. Their descriptions explain council collection
+  versus direct awards without a council vote. Repeated status text is
+  hidden; actual routing progress/problems remain visible.
+- Existing configured quality rules survive migration. Fresh defaults
+  preserve epic/legendary council collection; lower qualities use Ignore.
+  Review your existing rules before enabling automation.
+- All twenty local suites pass. Native layout and raid checks remain pending.
+- Protocol 17: update everyone together and start a fresh session. Do not
+  resume an alpha.58/protocol-16 session; saved raid setups/profiles remain.
 
 NEW SINCE ALPHA.57
 - Council membership uses one raid-member dropdown per member, with Remove

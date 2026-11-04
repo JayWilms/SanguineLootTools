@@ -89,7 +89,7 @@ print('Solo manual setup, 40-member sorted dropdowns, scrolling, realm disambigu
 lua=setup()
 lua.execute('''
 addRoster();A:Act('masterAutoSync',{});A:RefreshRaidMemberPickers()
-A.ui.masterMemberPicker:Click();local menu=A.ui.settingsDropdown
+A.ui.masterMemberPicker.dropdownArrow:Click();local menu=A.ui.settingsDropdown
 -- Member leaves before a row click; stale option cannot replace typed input.
 A.ui.masterName:SetText('Keep-Realm');A.roster[menu.choices[1][2]]=nil
 menu.rows[1]:Click();assert(A.ui.masterName:GetText()=='Keep-Realm')
@@ -200,3 +200,27 @@ assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=false}))
 assert(A:ApplyCouncilMemberChange(full,'New-Realm',{enabled=false}))
 ''')
 print('Live council reducer, stale replacements, absent-member removal, idempotent actions and full-council replacement passed.')
+
+lua=setup()
+lua.execute('''
+local field=A.ui.masterName
+assert(A.ui.masterMemberPicker==field and field.kind=='EditBox')
+assert(field.placeholder:IsShown())
+assert(A:Act('masterAutoSync',{}));A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
+assert(field:IsEnabled() and not field.dropdownArrow:IsEnabled(),'solo typing must remain available without an empty roster menu')
+field:SetText('Typed-Realm');field.scripts.OnTextChanged(field)
+assert(not field.placeholder:IsShown())
+assert(A:RaidSettings().master~='Typed-Realm','typing applied without Assign')
+field:SetText('');field.scripts.OnTextChanged(field)
+assert(field.placeholder:IsShown())
+addRoster();A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
+assert(field.dropdownArrow:IsEnabled())
+choose('master','Same-Beta');field.scripts.OnTextChanged(field)
+assert(field:GetText()=='Same-Beta' and not field.placeholder:IsShown())
+assert(A:RaidSettings().master~='Same-Beta','dropdown selection applied without Assign')
+assert(A:Act('master',{target=field:GetText()}))
+assert(A:RaidSettings().master=='Same-Beta')
+assert(A:Act('masterAutoSync',{}));A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
+assert(not field:IsEnabled() and not field.dropdownArrow:IsEnabled())
+''')
+print('Single editable Master Looter field, placeholder visibility, solo typing, roster arrow and explicit Assign passed.')
