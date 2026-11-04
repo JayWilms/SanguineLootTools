@@ -190,3 +190,42 @@ function A:ShowAwardAudit(record)
     self.ui.auditChild:SetHeight(math.max(475,self.ui.auditText:GetStringHeight()+25))
     self.ui.auditScroll:SetVerticalScroll(0);self.ui.awardAudit:Show()
 end
+
+-- Search applies only to the history view; canonical records and audits stay intact.
+function A:FilterHistoryRecords(player, query)
+    query=tostring(query or ""):match("^%s*(.-)%s*$")
+    local itemID=query:match("item:(%d+)")
+    local isDate=query:match("^%d%d/%d%d/%d%d%d%d$")
+    local needle=query:lower()
+    local records={}
+    for _,record in ipairs(SanguineLootCouncilDB.history) do
+        local matches=query==""
+        if not matches then
+            if itemID then
+                matches=tostring(record.item or ""):match("item:(%d+)")==itemID
+            elseif isDate then
+                matches=date("%d/%m/%Y",record.time or 0)==query
+            else
+                local item=tostring(record.item or "")
+                item=item:match("|h%[(.-)%]|h") or item
+                matches=tostring(record.winner or ""):lower():find(needle,1,true)~=nil
+                    or item:lower():find(needle,1,true)~=nil
+            end
+        end
+        if matches and (not player or record.winner==player) then records[#records+1]=record end
+    end
+    table.sort(records,function(a,b)
+        if (a.time or 0)~=(b.time or 0) then return (a.time or 0)>(b.time or 0) end
+        return tostring(a.key)<tostring(b.key)
+    end)
+    return records
+end
+
+function A:CaptureHistoryLink(link)
+    local u=self.ui
+    if not u or not u.history or u.history:IsShown()~=true or not u.historySearch
+        or u.historySearch:HasFocus()~=true or type(link)~="string" or not link:match("item:%d+") then return false end
+    if u.historySearch:GetText()~=link then u.historySearch:SetText(link) end
+    u.historySearch:SetCursorPosition(#link)
+    return true
+end

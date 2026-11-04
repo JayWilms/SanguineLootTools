@@ -442,11 +442,14 @@ function A:LayoutReadableWindow(frame)
         cols[4][3]=itemWidth;cols[5][2]=340+itemWidth
         cols[5][3]=w-65-cols[5][2]
         frame.title:SetWidth(w-60);u.historyScope:SetWidth(w-200)
+        place(u.historySearch,20,98,w-205,26)
+        place(u.historySearch.hint,20,80,w-65,14)
+        place(u.historyMine,w-165,98,125,26)
         place(u.historyAll,w-165,45)
         if u.archiveCompleted then place(u.archiveCompleted,w-240,h-50,220,28) end
         if u.archiveHelp then place(u.archiveHelp,20,h-45,w-280,32);u.archiveHelp:SetMaxLines(2) end
-        u.historyScroll:ClearAllPoints();u.historyScroll:SetPoint("TOPLEFT",20,-105);u.historyScroll:SetPoint("BOTTOMRIGHT",-35,70)
-        for _,col in ipairs(cols) do place(col.heading,20+col[2],82,col[3]) end
+        u.historyScroll:ClearAllPoints();u.historyScroll:SetPoint("TOPLEFT",20,-160);u.historyScroll:SetPoint("BOTTOMRIGHT",-35,70)
+        for _,col in ipairs(cols) do place(col.heading,20+col[2],137,col[3]) end
         u.historyChild:SetWidth(w-55)
         for _,row in ipairs(u.historyRows) do
             row:SetWidth(w-65)

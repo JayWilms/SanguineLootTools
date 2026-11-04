@@ -1,3 +1,12 @@
+## Unreleased: History filters
+
+- Search History by partial player name or item name (case insensitive).
+- Enter a date as DD/MM/YYYY and confirm only awards from that displayed date appear.
+- Focus the search box and Shift-click an item; confirm it replaces the search and matches that item across link variants.
+- Toggle My Rewards to show only the current character’s awards; combine with item/date search, then toggle off.
+- Check empty results, clearing search, window resizing, row tooltips and award audits.
+- Confirm completed Disenchant/Guild Bank history remains searchable.
+
 # Raid testing checklist
 
 ## Alpha.55: warning sound and completed utility assignments
