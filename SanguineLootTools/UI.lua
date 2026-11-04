@@ -632,7 +632,7 @@ function A:BuildUI()
         A:ShowHistory(A.historyFilter)
     end)
     u.historySearch:SetScript("OnEnterPressed",function(box) box:ClearFocus() end)
-    u.historyMine=button(h,"My Rewards",665,-98,125,function()
+    u.historyMine=button(h,"My Rewards",665,-98,165,function()
         if A.historyFilter==A.me then A:ShowHistory() else A:ShowHistory(A.me) end
     end)
     u.historyColumns={{"Name",0,150},{"Date",155,90},{"Time",250,75},{"Item",330,410},{"Response",745,155}}
@@ -1122,7 +1122,7 @@ function A:ShowHistory(player)
         lines[#lines+1]=table.concat(values," | ")..(h.timeSource~="award" and " [time observed]" or "")
     end
     for i=#records+1,#self.ui.historyRows do self.ui.historyRows[i]:Hide() end
-    self.ui.historyMine:SetText(player==self.me and "My Rewards: On" or "My Rewards")
+    self.ui.historyMine:SetText(player==self.me and "Back to All Rewards" or "My Rewards")
     self.ui.historyScope:SetText((player and ("Player: "..player) or "All players").." | "..#records.." recorded awards; latest 500 retained. Click a row for audit.")
     self.ui.historyText:SetText(#lines > 0 and table.concat(lines, "\n") or "No local records for this selection. This does not mean the player has never received loot.")
     if not self.ui.historyEmpty then self.ui.historyEmpty=text(self.ui.historyChild,"No recorded awards for this selection.",12,0,-8,890) end
