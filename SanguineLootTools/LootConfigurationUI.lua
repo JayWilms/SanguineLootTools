@@ -27,7 +27,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
     u.lootAutomatic=button(collection,"",0,0,76,function() local c=A:LootConfiguration();c.automatic=not c.automatic;A:SaveLootConfiguration(c) end);switch(u.lootAutomatic)
     row(collection,"Automatic assignment","Requires a recipient and reason for each Assign automatically rule. Starts off.",216,u.lootAutomatic,76)
     u.lootRoutingStatus=text(collection,"",11,0,-285,690);position(u.lootRoutingStatus,collection,0,285,function(w) return w end,44)
-    local rules=group("rules","Quality rules • Raid Leader only")
+    local rules=group("rules","Quality Rules • Raid Leader Only")
     u.lootQualityRows={}
     for i=1,6 do
         local index=i;local r={};u.lootQualityRows[i]=r
@@ -47,7 +47,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
         r.reason=button(rules,"Edit reason",0,0,100,function() A:OpenLootReason(index) end)
         r.help=text(rules,"",11,0,0,690);r.help:SetMaxLines(2);r.help:SetHeight(30)
     end
-    u.lootReason=window("SanguineLootToolsLootReason","Automatic assignment reason",560,310,true)
+    u.lootReason=window("SanguineLootToolsLootReason","Automatic Assignment Reason",560,310,true)
     u.lootReasonTitle=text(u.lootReason,"",14,20,-50,520)
     u.lootReasonPreset=button(u.lootReason,"Choose a reason",20,-85,250,function() end)
     dropdown(u.lootReasonPreset,{{"Disenchanted","Disenchant"},{"Guild Bank","Guild Bank"},{"Other","Other"}},function(value) u.lootReasonChoice=value;u.lootReasonPreset:SetText(reasonLabels[value] or value) end)

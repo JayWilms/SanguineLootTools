@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.57 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.58 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,20 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.57, protocol 16. Commands use /slt.
+Everyone testing together should use alpha.58, protocol 16. Commands use /slt.
 Start a new normal raid session; do not resume an old protocol-15 session.
+
+NEW SINCE ALPHA.57
+- Council membership uses one raid-member dropdown per member, with Remove
+  on the right and Add Council Member underneath. Changes save immediately.
+- Replacing a member is atomic; duplicate selections are rejected. Saved
+  absent members remain visible and removable. Leader and voting locks remain.
+- Gold Settings headings capitalize the start of every word, including
+  Saved Raid Profiles, Profile Name, Council Membership and Voting Rules.
+- Repeated tab titles and introductions are removed. Content starts higher,
+  giving controls and the docked Responses preview more room.
+- All nineteen local suites pass, including council row regressions.
+  Native layout checks remain pending. Protocol 16 retained.
 
 NEW SINCE ALPHA.56
 - History shows muted "Search name, date or item..." text inside the empty
