@@ -21,6 +21,8 @@ Screenshots/
 !dist/SanguineLootTools-0.12.0-alpha.53-install.zip
 !dist/SanguineLootTools-0.12.0-alpha.54-install.zip
 !dist/SanguineLootTools-0.12.0-alpha.55-install.zip
+!dist/SanguineLootTools-0.12.0-alpha.56-install.zip
+!dist/SanguineLootTools-0.12.0-alpha.57-install.zip
 *.log
 __pycache__/
 *.pyc

@@ -1,5 +1,10 @@
 local _, A = ...
 
+-- Older records may have only the displayed assignment reason.
+function A:IsGuildBankHistory(record)
+    return (record.awardReason or record.responseLabel)=="Guild Bank"
+end
+
 -- Counts describe this installation's retained records, never a player's lifetime loot.
 function A:PlayerHistory(name)
     self:InitStorage()
@@ -8,7 +13,7 @@ function A:PlayerHistory(name)
     local prefix = self.state and ((self.state.historyID or self.state.id) .. ":")
     local now, seen = A.Client:ServerTime(), {}
     for _, record in ipairs(SanguineLootCouncilDB.history) do
-        if record.winner == name and type(record.key) == "string" and not seen[record.key] then
+        if not self:IsGuildBankHistory(record) and record.winner == name and type(record.key) == "string" and not seen[record.key] then
             seen[record.key] = true
             result.records[#result.records + 1] = record
             result.total = result.total + 1
@@ -192,7 +197,7 @@ function A:ShowAwardAudit(record)
 end
 
 -- Search applies only to the history view; canonical records and audits stay intact.
-function A:FilterHistoryRecords(player, query)
+function A:FilterHistoryRecords(player, query, guildBank)
     query=tostring(query or ""):match("^%s*(.-)%s*$")
     local itemID=query:match("item:(%d+)")
     local isDate=query:match("^%d%d/%d%d/%d%d%d%d$")
@@ -212,7 +217,8 @@ function A:FilterHistoryRecords(player, query)
                     or item:lower():find(needle,1,true)~=nil
             end
         end
-        if matches and (not player or record.winner==player) then records[#records+1]=record end
+        local inScope=self:IsGuildBankHistory(record)==(guildBank==true)
+        if inScope and matches and (guildBank==true or not player or record.winner==player) then records[#records+1]=record end
     end
     table.sort(records,function(a,b)
         if (a.time or 0)~=(b.time or 0) then return (a.time or 0)>(b.time or 0) end

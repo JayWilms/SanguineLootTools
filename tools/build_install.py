@@ -14,7 +14,7 @@ assert f'A.version = "{version}"' in core
 assert 'A.protocol = 16' in core
 assert core.count('self.state.responseDuration=60') == 2
 files = sorted(p for p in source.rglob('*') if p.is_file())
-assert len(files) == 38
+assert len(files) == 39
 output = root / 'outputs' / f'SanguineLootTools-{version}-install.zip'
 staged = root / 'work' / f'SanguineLootTools-{version}-verified.zip'
 with zipfile.ZipFile(staged, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
@@ -22,13 +22,13 @@ with zipfile.ZipFile(staged, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(file, file.relative_to(root).as_posix())
 with zipfile.ZipFile(staged) as archive:
     assert archive.testzip() is None
-    assert len(archive.namelist()) == 38
+    assert len(archive.namelist()) == 39
     for file in files:
         assert archive.read(file.relative_to(root).as_posix()) == file.read_bytes()
     for line in toc.splitlines():
         if line.strip() and not line.startswith('#'):
             assert 'SanguineLootTools/' + line in archive.namelist()
 staged.replace(output)
-print(f'Built and verified {version}: 38 addon files, complete manifest, protocol 16.')
+print(f'Built and verified {version}: 39 addon files, complete manifest, protocol 16.')
 print(output)
 print('SHA256:', hashlib.sha256(output.read_bytes()).hexdigest())

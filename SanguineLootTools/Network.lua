@@ -121,7 +121,7 @@ end
 
 function A:Send(packet,target,options)
     if self:IsSoloTest() or not self.Client:InGroup() then return false end
-    if not self.Client:InRaid() and self.state and not self.groupTest then return false end
+    if not self.Client:InRaid() and self.state and not self.groupTest and packet.kind~="historySync" then return false end
     packet.protocol=PROTOCOL
     options=options or {}
     local priority=self:NetworkMessagePriority(packet,options)
@@ -182,11 +182,16 @@ function A:Send(packet,target,options)
     batch.parts,batch.bytes,batch.index,batch.target,batch.priority,batch.key=parts,size,1,target,priority,key
     batch.baseState=batch.baseState or options.baseState
     batch.baseRev=batch.baseRev or packet.baseRev
-    batch.kind,batch.op=packet.kind,packet.data and packet.data.op
+    batch.kind,batch.op=packet.kind,(packet.data and packet.data.op) or (packet.kind=="historySync" and packet.op)
+    batch.historyToken=packet.kind=="historySync" and packet.token or nil
     batch.responseRequest=packet.data and packet.data.responseRequest
     batch.rev,batch.sid=packet.rev,packet.sid or (packet.state and packet.state.id or false)
     if not previous then queue[#queue+1]=batch end
     return true
+end
+
+function A:CancelHistorySyncTransport(token)
+    for i=#queue,1,-1 do if queue[i].historyToken==token then table.remove(queue,i) end end
 end
 
 function A:ServiceCorpseActions()
@@ -210,7 +215,7 @@ end
 function A:IncomingProgress()
     local selected
     for _,batch in pairs(incoming) do
-        if batch.sender==self.leader and batch.received<batch.count and batch.count>1
+        if not batch.history and batch.sender==self.leader and batch.received<batch.count and batch.count>1
             and (not selected or batch.time>selected.time) then selected=batch end
     end
     if selected then return selected.received,selected.count end
@@ -271,7 +276,12 @@ function A:PumpSender()
         end
         nextSendAt=A.Client:Uptime()+sendInterval
         batch.index=batch.index+1;batch.retries=0
-        if batch.index>#batch.parts then table.remove(queue,selected) end
+        if batch.index>#batch.parts then
+            if batch.kind=="historySync" and batch.op=="hello" and self.historySync and self.historySync.token==batch.historyToken then
+                self.historySync.helloSent=true;self.historySync.started=now
+            end
+            table.remove(queue,selected)
+        end
     else
         self.networkMetrics.sendFailures=(self.networkMetrics.sendFailures or 0)+1
         local prefixThrottle=result==(codes and codes.AddonMessageThrottle or 3)
@@ -506,6 +516,7 @@ function A:Packet(sender, packet)
         self.networkMetrics.protocolMismatches=(self.networkMetrics.protocolMismatches or 0)+1
         return
     end
+    if self.HistorySyncPacket and self:HistorySyncPacket(sender,packet) then return end
     if self.NativeLootPacket and self:NativeLootPacket(sender,packet) then return end
     if packet.kind == "request" and self:IsLeader() then
         self:HostRequest(sender, packet.data)
@@ -628,9 +639,12 @@ function A:Receive(prefix, message, channel, rawSender)
     local id, index, count, chunk = message:match("^([%d%-]+):(%d+):(%d+):(.*)$")
     index, count = tonumber(index), tonumber(count)
     if not id or #id > 40 or not index or not count or index < 1 or index > count or count > 2913 then return end
-    -- Only the leader can send large snapshots. Other members send tiny requests.
+    -- Large snapshots are leader-owned; agreed History peers use a separate
+    -- bounded exception that cannot carry unrelated oversized requests.
+    local historyPeer=self.HistorySyncTransportPeer and self:HistorySyncTransportPeer(sender)
+    local largeHistory=historyPeer and count<=365
     local largeMaster=sender~=self.leader and count>8
-    if largeMaster and (not self.state or sender~=self.state.master or self.state.masterBlocked or count>48) then return end
+    if largeMaster and not largeHistory and (not self.state or sender~=self.state.master or self.state.masterBlocked or count>48) then return end
     local key = sender .. ":" .. id
     if completed[key] then return end
     local b = incoming[key]
@@ -638,13 +652,14 @@ function A:Receive(prefix, message, channel, rawSender)
         local active = 0
         for _, batch in pairs(incoming) do if batch.sender == sender then active = active + 1 end end
         if active >= 4 then return end
-        b = {sender = sender, count = count, parts = {}, received = 0, time = A.Client:Uptime()}
+        b = {history=historyPeer, sender = sender, count = count, parts = {}, received = 0, time = A.Client:Uptime()}
         incoming[key] = b
     end
     if count ~= b.count or b.parts[index] then return end
     b.parts[index], b.received = chunk, b.received + 1
     b.time=A.Client:Uptime() -- expire stalled transfers, not slowly progressing ones
-    if sender==self.leader and count>1 then
+    if historyPeer and self.historySync then self.historySync.activity=b.time;self.historySync.waitSince=b.time end
+    if sender==self.leader and count>1 and not historyPeer then
         if not b.prompted and not self.state then
             b.prompted=true;self.hiddenTransferProgress=nil;self:BuildUI()
         end
@@ -662,7 +677,7 @@ function A:Receive(prefix, message, channel, rawSender)
         end
         if count>512 then completed[oldest]=nil end
         local payload=table.concat(b.parts)
-        local limit=sender==self.leader and 524288 or ((self.state and sender==self.state.master and not self.state.masterBlocked) and 8640 or 1440)
+        local limit=sender==self.leader and 524288 or (largeHistory and 65536 or ((self.state and sender==self.state.master and not self.state.masterBlocked) and 8640 or 1440))
         local expanded=true
         if payload:sub(1,1)=="l" then expanded,payload=pcall(self.ExpandWire,self,payload:sub(2),limit) end
         local ok,packet=false,nil
@@ -677,7 +692,8 @@ function A:Receive(prefix, message, channel, rawSender)
             local request=type(packet)=="table" and packet.kind=="request" and type(packet.data)=="table" and packet.data
             local release=request and request.op=="queueLoot" and type(request.entries)=="table" and #request.entries<=40
             local native=request and request.op=="corpseNativeReceipt" and self.state and sender==self.state.master and #payload<=4096
-            if not release and not native then return end
+            local history=historyPeer and type(packet)=="table" and packet.kind=="historySync" and #payload<=65536
+            if not release and not native and not history then return end
         end
         if ok then self:Packet(sender, packet) end
     end
@@ -726,6 +742,7 @@ frame:SetScript("OnUpdate", function(_, dt)
         A:TickVoting()
         A:TickLoot()
         A:TickWarnings()
+        if A.TickHistorySync then A:TickHistorySync() end
         A:TickResponseEligibility()
         A:RenderNetworkStatus()
         if A.ui and (A.ui.main:IsShown() or A.ui.voting:IsShown()) then A:RenderVotingStatus() end

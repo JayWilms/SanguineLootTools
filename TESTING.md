@@ -1,18 +1,46 @@
-## Unreleased: green History exclusion
+## Alpha.57: History search placeholder
+
+- Empty History search shows muted "Search name, date or item..." inside the box, with no label above it.
+- Type a name/date/item or Shift-click a link: the placeholder disappears and filtering works. Clear the field: the placeholder returns.
+- Hover over the box for DD/MM/YYYY date and Shift-click linking guidance. Confirm both tooltips and focus behave correctly.
+- Check resizing and switching between All Rewards, My Rewards and Guild Bank; the placeholder must remain inside the field.
+
+## Alpha.56: group History sync
+
+- After split raids, regroup with representatives carrying each raid's History. A raid leader, master looter or configured council member clicks Sync History beside Guild Bank. Compatible online members of the current raid or party exchange retained records automatically; no active loot session is required.
+- Test two 10-player groups with distinct awards, then reform the 20-player raid. Verify all connected compatible members receive both histories. Add an absent member with empty History and repeat.
+- Check repeated syncs produce no duplicates, while separate copies of the same item keep separate award IDs. Existing award corrections, delivery logs and archive details survive; stale revisions cannot replace newer revisions.
+- Guild Bank entries synchronize and stay in their dedicated view. Green-quality awards remain excluded. The latest 500 awards across the combined history are retained, so sync cannot recover records already deleted from everyone's storage.
+- Verify Syncing/progress/completion states, disabled initiation for ordinary raiders, combat pause/resume, leaving the group, simultaneous initiators, mixed builds and a disconnected peer. Missing or interrupted peers must be reported rather than presented as successful.
+- Transfer a full retained history and richly audited awards from a non-leader. Live responses and loot session recovery must keep priority. The History sync must not open a new session, award loot or alter active trade tracking.
+- Old alpha.55 installations do not implement History sync and are counted as unavailable. Native Forever packet delivery/throttling and the new layout still require in-game checks. Install alpha.56 on everyone participating. Protocol 16 retained.
+
+## Alpha.56: Guild Bank History view
+
+- Search sits at the top left, with My Rewards and Guild Bank side by side on the left beneath it. Check both return labels at minimum, default and maximum window widths.
+
+- Click Guild Bank to show only awards with the Guild Bank assignment reason, including blue items, materials and reputation items. Legacy records with only a Guild Bank response label should appear too.
+- The Guild Bank button changes to Back to All Rewards; clicking it returns to the main rewards list.
+- Main History, My Rewards and candidate reward counts exclude Guild Bank assignments, including those held by your character. Ordinary awards to the same recipient remain visible.
+- Search by recipient, DD/MM/YYYY date, item name or Shift-clicked item link in Guild Bank view. Search changes and live refreshes must keep that view selected.
+- Switch directly between My Rewards and Guild Bank; check button labels, scroll reset, empty results, audits and resizing.
+- Green awards remain excluded from retained History. Guild Bank records retain their audit and delivery details and share the existing 500-record limit.
+
+## Alpha.56: green History exclusion
 
 - Existing green-quality awards are removed from retained History on storage initialization.
 - Award green equipment/materials by council and automatic assignment; neither should use History capacity.
 - Confirm blue/epic awards remain, including when 500 records are retained.
 - Active loot, delivery and archiving must continue normally for green items.
 
-## Unreleased: History filters
+## Alpha.56: History filters
 
 - Search History by partial player name or item name (case insensitive).
 - Enter a date as DD/MM/YYYY and confirm only awards from that displayed date appear.
 - Focus the search box and Shift-click an item; confirm it replaces the search and matches that item across link variants.
 - Toggle My Rewards to show only the current character’s awards; combine with item/date search, then click Back to All Rewards to return to all players.
 - Check empty results, clearing search, window resizing, row tooltips and award audits.
-- Confirm completed Disenchant/Guild Bank history remains searchable.
+- Confirm completed Disenchant history remains searchable in the main view, and Guild Bank history in its dedicated view.
 
 # Raid testing checklist
 

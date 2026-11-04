@@ -6,6 +6,7 @@ root = Path(__file__).resolve().parent.parent
 (root / 'work').mkdir(exist_ok=True)
 checks = [
     'check_history_filters.py',
+    'check_history_sync.py',
     'check_native_distribution.py',
     'check_corpse_transport.py',
     'check_corpse_routes.py',

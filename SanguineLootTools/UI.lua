@@ -626,15 +626,44 @@ function A:BuildUI()
     u.history = h
     u.historyScope = text(h, "", 11, 20, -52, 580)
     u.historyAll=button(h, "All players", 815, -45, 125, function() A:ShowHistory() end)
-    u.historySearch=edit(h,20,-98,620,"Search: Name, Date (DD/MM/YYYY), or Item — Shift-click an item to link")
+    u.historySearch=edit(h,20,-98,560,"")
+    u.historySearch.hint:Hide()
+    local placeholder=u.historySearch:CreateFontString(nil,"OVERLAY","ChatFontNormal")
+    placeholder:SetPoint("LEFT",8,0);placeholder:SetPoint("RIGHT",-8,0)
+    placeholder:SetJustifyH("LEFT");placeholder:SetMaxLines(1)
+    placeholder:SetTextColor(0.50,0.52,0.55)
+    placeholder:SetText("Search name, date or item…")
+    u.historySearch.placeholder=placeholder
+    u.historySearch:SetScript("OnEnter",function(box)
+        GameTooltip:SetOwner(box,"ANCHOR_RIGHT")
+        GameTooltip:AddLine("Search History",1,0.8,0.4)
+        GameTooltip:AddLine("Search by player name, item name, or date (DD/MM/YYYY).",1,1,1,true)
+        GameTooltip:AddLine("Shift-click an item while this field is focused to search by its item link.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    u.historySearch:SetScript("OnLeave",function() GameTooltip:Hide() end)
     u.historySearch:SetScript("OnTextChanged",function(box)
+        box.placeholder:SetShown(box:GetText()=="")
         A.historySearch=box:GetText();u.historyScroll:SetVerticalScroll(0)
-        A:ShowHistory(A.historyFilter)
+        A:ShowHistory(A.historyFilter,A.historyGuildBank)
     end)
     u.historySearch:SetScript("OnEnterPressed",function(box) box:ClearFocus() end)
-    u.historyMine=button(h,"My Rewards",665,-98,165,function()
+    u.historyMine=button(h,"My Rewards",20,-132,165,function()
         if A.historyFilter==A.me then A:ShowHistory() else A:ShowHistory(A.me) end
     end)
+    u.historyGuildBank=button(h,"Guild Bank",195,-132,165,function()
+        A:ShowHistory(nil,not A.historyGuildBank)
+    end)
+    u.historySync=button(h,"Sync History",370,-132,130,function() A:StartHistorySync() end)
+    u.historySync:SetScript("OnEnter",function(b)
+        GameTooltip:SetOwner(b,"ANCHOR_RIGHT")
+        GameTooltip:AddLine("Sync History",1,0.8,0.4)
+        GameTooltip:AddLine("Merge retained History with compatible online members of this group. Rejoin after split raids or an absence, then ask the leader, master looter or council to sync.",1,1,1,true)
+        GameTooltip:AddLine("Includes Guild Bank records. The latest 500 records are retained. Does not change the active loot session.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    u.historySync:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    u.historySyncStatus=text(h,"",10,510,-136,430);u.historySyncStatus:SetHeight(32);u.historySyncStatus:SetMaxLines(2)
     u.historyColumns={{"Name",0,150},{"Date",155,90},{"Time",250,75},{"Item",330,410},{"Response",745,155}}
     for _,col in ipairs(u.historyColumns) do col.heading=text(h,col[1],11,20+col[2],-82,col[3]);col.heading:SetTextColor(0.80,0.74,0.57) end
     u.historyRows={}
@@ -933,7 +962,7 @@ function A:Render()
     end
     u.selection:SetText(self.selectedCandidate and ("Selected: " .. self.selectedCandidate) or (#candidates>0 and "Select a candidate to vote or award" or ""))
     self:RenderCandidateHistory()
-    if u.history:IsShown() == true then self:ShowHistory(self.historyFilter) end
+    if u.history:IsShown() == true then self:ShowHistory(self.historyFilter,self.historyGuildBank) end
     local mutable = item and item.status ~= "awarded"
     u.open:SetEnabled(self:IsMaster() and mutable)
     u.open:SetText(item and item.voting~="idle" and "Reroll Item" or "Open responses")
@@ -1094,14 +1123,16 @@ function A:ShowReadiness()
     self:BuildUI();self:RenderReadiness();self.ui.checkWindow:Show()
 end
 
-function A:ShowHistory(player)
+function A:ShowHistory(player,guildBank)
     self:BuildUI()
     self:InitStorage()
     if type(player) ~= "string" then player = nil end
-    if self.historyFilter ~= player then self.ui.historyScroll:SetVerticalScroll(0) end
-    self.historyFilter = player
+    guildBank=guildBank==true
+    if guildBank then player=nil end
+    if self.historyFilter ~= player or self.historyGuildBank ~= guildBank then self.ui.historyScroll:SetVerticalScroll(0) end
+    self.historyFilter,self.historyGuildBank = player,guildBank
     local lines = {}
-    local records=self:FilterHistoryRecords(player,self.historySearch)
+    local records=self:FilterHistoryRecords(player,self.historySearch,guildBank)
     for i, h in ipairs(records) do
         local row=self.ui.historyRows[i]
         if not row then
@@ -1123,7 +1154,9 @@ function A:ShowHistory(player)
     end
     for i=#records+1,#self.ui.historyRows do self.ui.historyRows[i]:Hide() end
     self.ui.historyMine:SetText(player==self.me and "Back to All Rewards" or "My Rewards")
-    self.ui.historyScope:SetText((player and ("Player: "..player) or "All players").." | "..#records.." recorded awards; latest 500 retained. Click a row for audit.")
+    self.ui.historyGuildBank:SetText(guildBank and "Back to All Rewards" or "Guild Bank")
+    if self.RenderHistorySyncUI then self:RenderHistorySyncUI() end
+    self.ui.historyScope:SetText((guildBank and "Guild Bank" or player and ("Player: "..player) or "All players").." | "..#records.." recorded awards; latest 500 retained. Click a row for audit.")
     self.ui.historyText:SetText(#lines > 0 and table.concat(lines, "\n") or "No local records for this selection. This does not mean the player has never received loot.")
     if not self.ui.historyEmpty then self.ui.historyEmpty=text(self.ui.historyChild,"No recorded awards for this selection.",12,0,-8,890) end
     self.ui.historyEmpty:SetShown(#records==0)

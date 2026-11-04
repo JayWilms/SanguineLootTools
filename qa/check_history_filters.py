@@ -57,3 +57,59 @@ assert(#SanguineLootCouncilDB.history==500 and SanguineLootCouncilDB.history[1].
 assert(SanguineLootCouncilDB.history[1].quality==3)
 ''')
 print('Existing greens removed; new greens preserve all 500 slots; blue awards retain normal capacity behavior.')
+
+# Guild Bank classification follows the award reason, never quality or the
+# nominated holder's identity. Legacy displayed reasons remain supported.
+lua.execute('''
+SanguineLootCouncilDB.history={
+ {key='reward',winner='Banker-Realm',time=1,item='|Hitem:10|h[Blue Sword]|h',quality=3},
+ {key='bank-blue',winner='Banker-Realm',time=1,item='|Hitem:10|h[Blue Sword]|h',quality=3,awardReason='Guild Bank'},
+ {key='bank-material',winner='Moon-Realm',time=2,item='|Hitem:20|h[Cloth Material]|h',quality=1,awardReason='Guild Bank'},
+ {key='bank-rep',winner='Banker-Realm',time=2,item='|Hitem:30|h[Reputation Token]|h',responseLabel='Guild Bank'},
+ {key='de',winner='Banker-Realm',time=2,item='item:40',awardReason='Disenchant'},
+ {key='explicit',winner='Moon-Realm',time=2,item='item:50',awardReason='Other',responseLabel='Guild Bank'}
+}
+assert(#A:FilterHistoryRecords(nil,'')==3)
+assert(#A:FilterHistoryRecords('Banker-Realm','')==2)
+assert(#A:FilterHistoryRecords(nil,'',true)==3)
+assert(#A:FilterHistoryRecords(nil,'banker',true)==2)
+assert(#A:FilterHistoryRecords(nil,'04/11/2026',true)==1)
+assert(#A:FilterHistoryRecords(nil,'material',true)==1)
+assert(#A:FilterHistoryRecords(nil,'|Hitem:30:99|h[Reputation Token]|h',true)==1)
+assert(#A:FilterHistoryRecords(nil,'no such item',true)==0)
+A.Client={ServerTime=function() return 100 end}
+assert(A:PlayerHistory('Banker-Realm').total==2)
+assert(#SanguineLootCouncilDB.history==6)
+''')
+
+# Exercise the actual History renderer with empty search results so the test
+# focuses on view state, labels and scroll transitions without a game client.
+lua.execute('A.confirmationDialogs={}; SlashCmdList={}')
+lua.execute((root/'SanguineLootTools/UI.lua').read_text(),'SanguineLootTools',lua.globals().A)
+lua.execute('''
+local function widget()
+ return {SetText=function(s,v) s.value=v end,SetShown=function(s,v) s.shown=v end,
+ SetHeight=function() end,Show=function() end,SetVerticalScroll=function(s,v) s.offset=v;s.resets=(s.resets or 0)+1 end}
+end
+A.ui={history=widget(),historyScroll=widget(),historyMine=widget(),historyGuildBank=widget(),historyScope=widget(),historyRows={},historyText=widget(),historyEmpty=widget(),historyChild=widget()}
+A.BuildUI=function() end;A.LayoutReadableWindow=function() end
+A.me='Banker-Realm';A.historySearch='no such item'
+A:ShowHistory(nil,true)
+assert(A.historyGuildBank and A.historyFilter==nil)
+assert(A.ui.historyGuildBank.value=='Back to All Rewards' and A.ui.historyMine.value=='My Rewards')
+assert(A.ui.historyScope.value:find('Guild Bank',1,true))
+local resets=A.ui.historyScroll.resets
+A:ShowHistory(A.historyFilter,A.historyGuildBank)
+assert(A.historyGuildBank and A.ui.historyScroll.resets==resets)
+A:ShowHistory(A.me)
+assert(not A.historyGuildBank and A.historyFilter==A.me)
+assert(A.ui.historyMine.value=='Back to All Rewards' and A.ui.historyGuildBank.value=='Guild Bank')
+assert(A.ui.historyScroll.resets==resets+1)
+A:ShowHistory(nil,true)
+A:ShowHistory()
+assert(not A.historyGuildBank and A.historyFilter==nil)
+assert(A.ui.historyMine.value=='My Rewards' and A.ui.historyGuildBank.value=='Guild Bank')
+assert(A.historySearch=='no such item')
+assert(#SanguineLootCouncilDB.history==6)
+''')
+print('Guild Bank search, legacy classification, reward exclusion, view switching, return labels and audit retention pass.')

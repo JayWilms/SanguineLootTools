@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.55 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.57 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,41 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.55, protocol 16. Commands use /slt.
+Everyone testing together should use alpha.57, protocol 16. Commands use /slt.
 Start a new normal raid session; do not resume an old protocol-15 session.
+
+NEW SINCE ALPHA.56
+- History shows muted "Search name, date or item..." text inside the empty
+  search box, replacing the long label above it. Typing hides the hint;
+  clearing the field restores it.
+- Hover over the box for DD/MM/YYYY date guidance and Shift-click item linking.
+- Includes all alpha.56 History filters, Guild Bank separation, green-item
+  exclusion and group History sync. Protocol 16 retained.
+- All nineteen local suites pass; native layout and sync checks remain pending.
+
+NEW SINCE ALPHA.55
+- History search supports player names, dates (DD/MM/YYYY), item names and
+  Shift-clicked item links. Search sits at the top left of History.
+- My Rewards automatically filters to the logged-in character (name and realm).
+  Click Back to All Rewards to return to the main list.
+- Guild Bank opens a separate view of awards marked Guild Bank, with the same
+  return button. These records are hidden from the main/personal reward lists
+  and candidate reward counts. Search works in both views.
+- Green-quality awards no longer consume the 500 retained History slots.
+  Existing known green records are removed on load; green loot distribution
+  and active trade tracking remain available.
+- Sync History merges retained awards across compatible online members of
+  the current raid or party. Regroup after split raids, or invite an absent
+  member back, then have the leader, master looter or council start the sync.
+  No active loot session is required. Everyone participating needs alpha.56.
+- Syncing/progress/completion states appear in History, with a completion
+  message in chat. Missing or interrupted peers are reported. Sync preserves
+  newer correction/delivery revisions, complete audits and distinct item copies.
+- The merged history keeps the latest 500 records, including Guild Bank items.
+  Sync cannot recover records no longer retained by any participating member.
+- All nineteen local test suites pass, including a 20-member split-raid and
+  absence simulation. Native Forever sync and layout checks remain pending.
+  Protocol 16 retained; alpha.55 cannot participate in the new History sync.
 
 NEW SINCE ALPHA.54
 - Early and urgent trade warnings use Alarm Clock 2 (sound 12867), replacing
