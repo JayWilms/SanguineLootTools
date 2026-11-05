@@ -3,7 +3,7 @@ on:
   push:
     branches: [alpha64-staging]
 permissions:
-  contents: read
+  contents: write
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -20,3 +20,10 @@ jobs:
           name: verified-installer
           path: outputs/*-install.zip
           if-no-files-found: error
+      - name: Stage the verified alpha.64 installer
+        run: |
+          file=SanguineLootTools-0.12.0-alpha.64-install.zip
+          cp "outputs/$file" "dist/$file"
+          git add -f "dist/$file"
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Stage verified alpha.64 installer"
+          git push origin HEAD:alpha64-staging

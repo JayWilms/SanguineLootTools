@@ -26,6 +26,7 @@ checks = [
     'check_quality_rules.py',
     'check_display_preferences.py',
     'check_alpha36.py',
+    'check_alpha64.py',
 ]
 for name in checks:
     result = subprocess.run([sys.executable, str(root / 'qa' / name)], cwd=root, capture_output=True, text=True)

@@ -678,6 +678,8 @@ frame:RegisterEvent("CHAT_MSG_ADDON")
 pcall(frame.RegisterEvent, frame, "PARTY_LOOT_METHOD_CHANGED")
 pcall(frame.RegisterEvent, frame, "BAG_UPDATE_DELAYED")
 pcall(frame.RegisterEvent, frame, "CHAT_MSG_LOOT")
+pcall(frame.RegisterEvent, frame, "ITEM_DATA_LOAD_RESULT")
+pcall(frame.RegisterEvent, frame, "GET_ITEM_INFO_RECEIVED")
 for _,event in ipairs({"LOOT_OPENED","LOOT_READY","LOOT_CLOSED","LOOT_SLOT_CLEARED"}) do pcall(frame.RegisterEvent,frame,event) end
 for _, event in ipairs({"TRADE_SHOW", "TRADE_CLOSED", "TRADE_REQUEST_CANCEL","TRADE_ACCEPT_UPDATE","TRADE_PLAYER_ITEM_CHANGED","TRADE_TARGET_ITEM_CHANGED","TRADE_MONEY_CHANGED","UI_INFO_MESSAGE","UI_ERROR_MESSAGE"}) do pcall(frame.RegisterEvent, frame, event) end
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -694,6 +696,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if not ok or registered==false then A:Print("Addon communication API unavailable. Use /slt diagnostics; live communication is unconfirmed.") end
         A:RefreshRoster()
     elseif event == "CHAT_MSG_ADDON" then A:Receive(...)
+    elseif event == "ITEM_DATA_LOAD_RESULT" or event == "GET_ITEM_INFO_RECEIVED" then
+        if A.ItemDataLoaded then A:ItemDataLoaded(...) end
     elseif event == "PARTY_LOOT_METHOD_CHANGED" then A:SyncGameMaster()
     elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
         if A:IsSoloTest() and A.Client:InGroup() then A.demo, A.state = nil, nil end

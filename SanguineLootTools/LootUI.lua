@@ -75,7 +75,7 @@ function A:BuildLootUI(u, window, text, button, edit)
         row:SetScript("OnEnter",function(self)
             local entry=A.state and A:TrackedByID(self.tracked or 0)
             if entry then
-                GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:SetHyperlink(entry.link)
+                A:SetHoveredItem(self, entry.link)
                 local _,status=A:LootHolderInfo(entry.holder)
                 GameTooltip:AddLine("Holder: "..(entry.holder or "Unknown"),1,1,1)
                 if status then GameTooltip:AddLine(status,1,0.7,0.3) end

@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.63"
+A.version = "0.12.0-alpha.64"
 A.protocol = 17
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -13,12 +13,23 @@ function A:Print(s)
     DEFAULT_CHAT_FRAME:AddMessage("|cffd8b35aSanguine Loot Tools:|r " .. s)
 end
 
+function A:IsForever()
+    return self.Client and self.Client.IsForever and self.Client:IsForever()
+end
+
 function A:Name(unit)
-    local ok,name,realm = self.Client:Call("UnitFullName",unit)
-    if not ok or type(name)~="string" then return end
-    if not realm or realm == "" then local ok,value=self.Client:Call("GetNormalizedRealmName");realm=ok and value or nil end
-    if type(realm)~="string" or realm=="" then return end
-    return name .. "-" .. realm
+    local ok, name, suffix = self.Client:Call("UnitFullName", unit)
+    if not ok or type(name) ~= "string" or name == "" then return end
+    -- Forever returns the character's surname in the second slot.
+    if self:IsForever() then
+        if type(suffix) == "string" and suffix ~= "" then return name .. "-" .. suffix end
+        return
+    end
+    if not suffix or suffix == "" then
+        local available, realm = self.Client:Call("GetNormalizedRealmName")
+        suffix = available and realm or nil
+    end
+    if type(suffix) == "string" and suffix ~= "" then return name .. "-" .. suffix end
 end
 
 function A:RefreshRoster()
@@ -57,11 +68,13 @@ function A:RefreshRoster()
 end
 
 function A:Resolve(name)
-    if type(name) ~= "string" then return nil end
+    if type(name) ~= "string" or (issecretvalue and issecretvalue(name)) then return nil end
+    local forever = self:IsForever()
+    if forever then name = name:gsub("^([^%s%-]+)%s+([^%s%-]+)$", "%1-%2") end
     if self.roster[name] then return name end
-    local found
+    local wanted, found = name:lower()
     for full in pairs(self.roster) do
-        if full:lower() == (name or ""):lower() or full:match("^[^-]+"):lower() == (name or ""):lower() then
+        if full:lower() == wanted or (not forever and (full:match("^[^-]+") or full):lower() == wanted) then
             if found then return nil end
             found = full
         end
@@ -76,6 +89,7 @@ function A:IsMaster() return self.state and self.state.master == self.me and not
 function A:IsCouncil() return self.state and self.state.council[self.me] == true end
 function A:CanViewCouncil() return (self:IsMaster() or self:IsCouncil()) == true end
 function A:DisplayName(name)
+    if self:IsForever() then return name end
     local short=name:match("^[^-]+") or name
     for other in pairs(self.roster or {}) do
         if other~=name and (other:match("^[^-]+") or other)==short then return name end
@@ -84,6 +98,7 @@ function A:DisplayName(name)
 end
 
 function A:Changed()
+    if self.PreloadSessionItems then self:PreloadSessionItems() end
     if self.corpseOpen or (self.state and next(self.state.corpseRoutes or {})) then self.corpseScanSoon=true end
     if self.PrimeLootBagSnapshot then self:PrimeLootBagSnapshot() end
     if self.PruneActiveCaches then self:PruneActiveCaches() end

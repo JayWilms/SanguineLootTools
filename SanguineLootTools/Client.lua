@@ -33,6 +33,8 @@ local providers={
     ["C_Item.GetItemGUID"]=function() return C_Item and C_Item.GetItemGUID end,
     ["C_Item.IsBound"]=function() return C_Item and C_Item.IsBound end,
     ["C_Item.GetItemInfo"]=function() return (C_Item and C_Item.GetItemInfo) or GetItemInfo end,
+    ["C_Item.IsItemDataCachedByID"]=function() return C_Item and C_Item.IsItemDataCachedByID end,
+    ["C_Item.RequestLoadItemDataByID"]=function() return C_Item and C_Item.RequestLoadItemDataByID end,
     ["C_TooltipInfo.GetHyperlink"]=function() return C_TooltipInfo and C_TooltipInfo.GetHyperlink end,
     ["C_Item.GetItemInfoInstant"]=function() return C_Item and C_Item.GetItemInfoInstant end,
     ["C_Item.GetItemIconByID"]=function() return C_Item and C_Item.GetItemIconByID end,
@@ -60,6 +62,17 @@ function C:Invoke(fn,...)
     return unpack(result,1,result.n)
 end
 function C:Call(name,...) return self:Invoke(self:Get(name),...) end
+function C:IsForever()
+    local ok, version, _, _, interface = self:Call("GetBuildInfo")
+    return ok and ((type(interface) == "number" and interface >= 16000 and interface < 17000)
+        or (type(version) == "string" and version:match("^1%.60%."))) and true or false
+end
+
+function C:RequestItemDataIfMissing(id)
+    local ok, cached = self:Call("C_Item.IsItemDataCachedByID", id)
+    if not ok or not cached then self:Call("C_Item.RequestLoadItemDataByID", id) end
+end
+
 function C:ClockReady()
     local ok,wall=self:Call("GetServerTime")
     local good,uptime=self:Call("GetTime")
