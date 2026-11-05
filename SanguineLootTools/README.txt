@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.63 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.64 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,16 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.63, protocol 17. Commands use /slt.
+Everyone testing together should use alpha.64, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.63
+- Request missing item data when loot arrives and refresh the active tooltip.
+- /slt test includes 27 items, with all three relic types and one recipe each
+  for Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking and Tailoring.
+- After a confirmed vote, select the next item with an available candidate.
+- Forever uses both character names in roster, voting, loot, trade and history.
+  Existing history entries retain their recorded names.
 
 NEW SINCE ALPHA.62
 - The 30-item test pool includes a libram, idol, totem and one sample for

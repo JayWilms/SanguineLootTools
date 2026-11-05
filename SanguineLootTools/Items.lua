@@ -12,6 +12,54 @@ local function nativeItemLink(id)
     if ok and A:EquipmentLink(link) and tonumber(link:match("item:(%d+)")) == id then return link end
 end
 
+local function itemID(link)
+    return type(link) == "string" and tonumber(link:match("item:(%d+)"))
+end
+
+function A:PreloadSessionItems()
+    local state = self.state
+    local session = state and state.id
+    if session ~= self.itemPreloadSession then
+        self.itemPreloadSession, self.itemPreloadSeen = session, {}
+    end
+    if not session or not self.Client.RequestItemDataIfMissing then return end
+    for _, entries in ipairs({state.trackedLoot or {}, state.items or {}}) do
+        for _, entry in ipairs(entries) do
+            local id = itemID(entry.link)
+            if id and not self.itemPreloadSeen[id] then
+                self.itemPreloadSeen[id] = true
+                self.Client:RequestItemDataIfMissing(id)
+            end
+        end
+    end
+end
+
+function A:SetHoveredItem(owner, link, anchor)
+    GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+    GameTooltip:SetHyperlink(link)
+    self.hoveredItemOwner, self.hoveredItemID = owner, itemID(link)
+end
+
+function A:ItemDataLoaded(id, success)
+    if issecretvalue and (issecretvalue(id) or issecretvalue(success)) then return end
+    if success ~= true or type(id) ~= "number" then return end
+    if self.ui and self.state then
+        local selected = self:ItemByID(self.selectedItem or 1)
+        local response = self:ItemByID(self.popupItem or 0)
+        if (self.demo and self:RefreshDemoItems()) or (selected and itemID(selected.link) == id)
+            or (response and itemID(response.link) == id) then
+            self.ui.selectedLootKey = nil
+            self:Render()
+        end
+    end
+    local owner = self.hoveredItemOwner
+    if self.hoveredItemID == id and owner and owner:IsVisible() and GameTooltip:IsShown()
+        and GameTooltip:GetOwner() == owner then
+        local onEnter = owner:GetScript("OnEnter")
+        if onEnter then onEnter(owner) end
+    end
+end
+
 -- Fixed samples checked against a Forever 16001 client item dump.
 -- Include equipment, relics and profession recipes to exercise different eligibility cases.
 function A:TestItems()
@@ -37,10 +85,7 @@ function A:TestItems()
         {279295,"Formula: Torch of Light"},
         {279315,"Pattern: Robes of Fiery Devastation"},
         {279322,"Schematic: Hyper Deluxe Sniper Rifle Mk XVII"},
-        {274415,"Recipe: Sweetpaw Jam",1},
         {274277,"Recipe: Flask of Natural Accuracy"},
-        {255726,"Manual: Leather Tourniquet",2},
-        {16083,"Expert Fishing - The Bass and You",1},
         {281586,"Elderwild Construction Hammer",3},
         {281636,"Museum Keeper's Chain",3},
         {281637,"Antique Bulwark",3},
@@ -292,6 +337,7 @@ function A:SeedTestLoot()
             observedAt=self.Client:ServerTime(),verifiedHolder=true,deliveryRevision=0,deliveryLog={}}
         end
     end
+    self:PreloadSessionItems()
 end
 
 function A:SeedSoloTestResponses(item)

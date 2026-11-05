@@ -146,7 +146,7 @@ function A:BuildResponseRail(u,p,text,button)
         b:SetScript("OnEnter",function()
             local item=A:ItemByID(b.itemID)
             if not item then return end
-            GameTooltip:SetOwner(b,"ANCHOR_RIGHT");GameTooltip:SetHyperlink(item.link)
+            A:SetHoveredItem(b, item.link)
             GameTooltip:AddLine(b.eligibility=="Unknown" and ("Eligibility unknown: "..(b.reason or "Awaiting item data")) or "Usable by your class",1,0.8,0.4,true)
             local response=A:PersonalSelection(item)
             GameTooltip:AddLine(response and ("Your response: "..A:ResponseLabel(response.choice,item)) or "Choose a response",1,1,1,true)

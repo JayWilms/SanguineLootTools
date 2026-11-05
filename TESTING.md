@@ -1,3 +1,10 @@
+## Alpha.64: Cold item data, voting and full character names
+
+- [ ] With the Timer window closed on the receiving client, add previously unseen loot. Queue it immediately and confirm the response round starts while item data is loading. Hover it in Loot or Responses and verify the visible tooltip fills in as data arrives. Repeat with a warm cache and multiple copies of the same item.
+- [ ] Run /slt test solo and in a group. Loot and Council should show 27 samples after release, including a libram, idol, totem and recipes for Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking and Tailoring. Confirm that actual Cooking, First Aid and Fishing recipe loot still follows the live profession filter.
+- [ ] In Council, vote on an item followed by an item with no eligible candidates and then one with a candidate. Confirm the second item is skipped and can still be selected manually. When no subsequent item is votable, verify the current item stays selected and displays Voted. Repeat as a remote council member.
+- [ ] Raid with two characters who share their first name. Verify roster, readiness, responses, council votes, awards, trade and history distinguish them. Check a private ballot update, History Sync and the Trade button for each. Confirm the client reports and routes the full surname in addon-message senders and accepts the existing whisper target and trade unit token. Check that an older history record with a realm suffix remains under its recorded name.
+
 ## Alpha.63: Relic and profession response filtering
 
 - [ ] On a Priest with Tailoring and Enchanting, run /slt test and Queue All. After data loads, expect 10 responses. The Steadfast Libram and the Blacksmithing and Leatherworking recipes should be absent. The Tailoring pattern, Enchanting formula and Torch of Light wand should appear. With no other matching skills, also verify the other five profession samples, the totem and the idol stay out of Responses. Loot and Council retain all nine profession samples and all three relics.

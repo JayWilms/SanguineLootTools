@@ -61,6 +61,32 @@ function A:PrepareVotingAdvance(kind,item,target)
         expires=self.Client:ServerTime()+30}
 end
 
+local function voteAvailable(self, item)
+    return (item.status == "open" or item.status == "closed") and item.voting == "open"
+        and (not item.deadline or self.Client:ServerTime() < item.deadline)
+end
+
+local function voteCandidate(self, item, name, response)
+    return self.roster[name] and response.choice ~= 0 and response.choice ~= 6
+        and (item.votingSelfVotes or name ~= self.me)
+end
+
+local function hasVoteCandidate(self, item)
+    if not voteAvailable(self, item) then return false end
+    local own = self:VisibleVoting(item).ownBallot
+    local choices = own and own.choices or {}
+    local rules = item.votingRules or self.state.rules
+    if rules and rules.limit > 1 then
+        local count = 0
+        for _ in pairs(choices) do count = count + 1 end
+        if count >= rules.limit then return false end
+    end
+    for name, response in pairs(item.responses) do
+        if not choices[name] and voteCandidate(self, item, name, response) then return true end
+    end
+    return false
+end
+
 function A:ApplyVotingAdvance()
     local p=self.pendingVotingAdvance;if not p then return end
     local item=self.state and self:ItemByID(p.item)
@@ -79,20 +105,21 @@ function A:ApplyVotingAdvance()
     end
     if not complete then return end
     self.pendingVotingAdvance=nil
-    for i,current in ipairs(self.state.items) do
-        local nextItem=self.state.items[i+1]
-        if current.id==p.item and nextItem then
-            self.selectedItem=nextItem.id
-            self.itemPage=math.floor(i/(self.votingItemRows or 9))
-            self.candidatePage,self.selectedCandidate=0,nil
+    local afterCurrent = false
+    for i, candidate in ipairs(self.state.items) do
+        if afterCurrent and (p.kind ~= "vote" or hasVoteCandidate(self, candidate)) then
+            self.selectedItem = candidate.id
+            self.itemPage = math.floor((i - 1) / (self.votingItemRows or 9))
+            self.candidatePage, self.selectedCandidate = 0, nil
             return
         end
+        if candidate.id == p.item then afterCurrent = true end
     end
 end
 
 local function tip(button)
     button:SetScript("OnEnter", function(self)
-        if self.link then GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink(self.link); GameTooltip:Show() end
+        if self.link then A:SetHoveredItem(self, self.link); GameTooltip:Show() end
     end)
     button:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
@@ -342,7 +369,7 @@ function A:RenderCouncilTable(item, candidates, draft)
             for _,edge in ipairs(n.edges) do edge:SetColorTexture(r,g,b,1) end
             for _,line in ipairs(n.lines) do line:SetColorTexture(r,g,b,1) end
             local voted=own and own.choices and own.choices[c.name]
-            row.pick:SetEnabled(not awarded and self:IsCouncil() and item.voting=="open" and c.response.choice~=0 and c.response.choice~=6)
+            row.pick:SetEnabled(self:IsCouncil() and voteAvailable(self, item) and voteCandidate(self, item, c.name, c.response))
             row.pick:SetText(voted and "Voted" or "Vote")
             row.pick:GetFontString():SetTextColor(voted and 0.3 or 1, voted and 1 or 0.82, voted and 0.45 or 0)
             local awardLabel,awardEnabled=self:CouncilAwardAction(item,c.name)
@@ -390,19 +417,6 @@ function A:BuildSelectedLootTooltip(u, parent, text)
         tooltip:SetClampedToScreen(false);tooltip:EnableMouse(false);tooltip:Hide()
         if tooltip.HookScript then tooltip:HookScript("OnSizeChanged",function() A:SizeSelectedLootTooltip() end) end
     end
-    pcall(pane.RegisterEvent,pane,"GET_ITEM_INFO_RECEIVED")
-    pane:SetScript("OnEvent",function(_,event,id,success)
-        if event ~= "GET_ITEM_INFO_RECEIVED" or not success then return end
-        if A.demo and A:RefreshDemoItems() then A:Render(); return end
-        if not A.state then return end
-        local selected = A:ItemByID(A.selectedItem or 1)
-        local response = A:ItemByID(A.popupItem or 0)
-        if (selected and tonumber(selected.link:match("item:(%d+)")) == id)
-            or (response and tonumber(response.link:match("item:(%d+)")) == id) then
-            A.ui.selectedLootKey = nil
-            A:Render()
-        end
-    end)
     parent:SetScript("OnHide",function()
         u.selectedLootKey=nil
         if u.selectedLootTooltip then u.selectedLootTooltip:Hide() end

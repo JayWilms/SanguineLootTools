@@ -30,8 +30,8 @@ end
 
 function A:PlayerHistoryLabel(name)
     local history = self:PlayerHistory(name)
-    local short = name and name:match("^[^-]+") or "Candidate"
-    return short .. ": " .. history.session .. " this session | " .. history.week .. " last 7 days | " .. history.total .. " local records", history
+    local label = name and self:DisplayName(name) or "Candidate"
+    return label .. ": " .. history.session .. " this session | " .. history.week .. " last 7 days | " .. history.total .. " local records", history
 end
 
 function A:HistoryWithAudit(name)

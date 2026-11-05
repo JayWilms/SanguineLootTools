@@ -36,7 +36,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
             local choices={{"Current Master Looter","@master"}};local names={}
             for name in pairs(A.roster) do names[#names+1]=name end;table.sort(names)
             for _,name in ipairs(names) do choices[#choices+1]={name,name} end
-            choices[#choices+1]={"Enter Name-Realm…","@edit"}
+            choices[#choices+1]={"Enter full name…","@edit"}
             return choices
         end,function(value) if value=="@edit" then A:OpenLootReason(index);return end;local c=A:LootConfiguration();c.rules[index].target=value;A:SaveLootConfiguration(c) end)
         r.reason=button(rules,"Edit reason",0,0,100,function() A:OpenLootReason(index) end)
@@ -46,7 +46,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
     u.lootReasonTitle=text(u.lootReason,"",14,20,-50,520)
     u.lootReasonPreset=button(u.lootReason,"Choose a reason",20,-85,250,function() end)
     dropdown(u.lootReasonPreset,{{"Disenchanted","Disenchant"},{"Guild Bank","Guild Bank"},{"Other","Other"}},function(value) u.lootReasonChoice=value;u.lootReasonPreset:SetText(reasonLabels[value] or value) end)
-    u.lootReasonRecipient=edit(u.lootReason,25,-145,510,"Recipient Name-Realm • blank uses current Master Looter")
+    u.lootReasonRecipient=edit(u.lootReason,25,-145,510,"Recipient’s full name • blank uses current Master Looter")
     u.lootReasonRecipient:SetMaxLetters(100)
     u.lootReasonNote=edit(u.lootReason,25,-205,510,"Optional note • up to 100 bytes");u.lootReasonNote:SetMaxLetters(100)
     u.lootReasonSave=button(u.lootReason,"Save reason",20,-265,250,function()
@@ -56,7 +56,7 @@ function A:BuildLootConfigurationUI(u,window,text,button,edit,dropdown,position,
         if not A:IsLootAwardReason(u.lootReasonChoice) then A:Print("Choose Disenchanted, Guild Bank or Other.");return end
         local entered=u.lootReasonRecipient:GetText():match("^%s*(.-)%s*$")
         local target=entered=="" and "@master" or A:SetupMemberName(entered)
-        if not target then A:Print("Enter a full recipient Name-Realm, or leave blank for the current Master Looter.");return end
+        if not target then A:Print("Enter a full recipient character name, or leave blank for the current Master Looter.");return end
         r.target=target
         r.reason=u.lootReasonChoice;r.note=u.lootReasonNote:GetText()
         if A:SaveLootConfiguration(c)~=false then u.lootReason:Hide();A.lootReasonContext=nil end
