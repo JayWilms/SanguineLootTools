@@ -105,7 +105,7 @@ function A:ApplyIdleRaidSetting(op,p)
     elseif op=="master" or op=="council" then
         if op=="master" and c.masterAutoSync then self:Print("Turn off Follow in-game Master Looter to choose a manual default.");return false end
         local target=self:SetupMemberName(p.target)
-        if not target then self:Print("Enter an unambiguous current member or full Name-Realm for later.");return false end
+        if not target then self:Print("Enter an unambiguous current member or full character name for later.");return false end
         if op=="master" then c.master=target
         else
             local ok,message=self:ApplyCouncilMemberChange(c.council,target,p)

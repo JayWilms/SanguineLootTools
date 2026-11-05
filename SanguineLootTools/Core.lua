@@ -235,7 +235,7 @@ function A:Reduce(sender, p)
             s.selfVotes = not s.selfVotes
         else
             local target = (p.op=="council" and p.enabled==false and type(p.target)=="string" and s.council[p.target] and p.target) or self:Resolve(p.target)
-            if not target then return false, "Use an unambiguous raid member name (Name-Realm)." end
+            if not target then return false, "Use an unambiguous raid member name (full name)." end
             if p.op == "master" then
                 local gameMaster, status = self:ReadGameMaster()
                 if s.masterAutoSync and (gameMaster or status == "pending" or status == "restricted" or s.masterWasGame) then return false, "The addon follows the in-game master looter. Turn off automatic syncing to assign manually." end

@@ -13,7 +13,7 @@ C_Item = {
     IsItemDataCachedByID = function(id) return id == 12 end,
     RequestLoadItemDataByID = function(id) requested[#requested + 1] = id end,
 }
-A.state = {id='first', trackedLoot={{link='item:11'}, {link='item:12'}}, items={{link='item:11:2'}}}
+A.state = {id='first', trackedLoot={{link='item:11'}, {link='item:12'}}, items={{id=1, link='item:11:2'}}}
 A:Changed()
 A:Changed()
 assert(#requested == 1 and requested[1] == 11)
