@@ -191,7 +191,7 @@ function A:RenderLootWindows()
     if #rows==0 and completedAssignments>0 then panel.empty:SetText("No active loot to show.\nCompleted Disenchant and Guild Bank assignments are retained in Loot History.") end
     local capacity=(#s.items>=35 or #(s.trackedLoot or {})>=70) and (" | Active capacity: "..#s.items.."/40 items, "..#(s.trackedLoot or {}).."/80 copies (archive confirmed deliveries)") or ""
     panel.summary:SetText((self.demo and (self:TestLabel().." | ") or "")..(#rows==0 and (completedAssignments>0 and "No active loot" or "No loot collected yet") or (pending==0 and "No awards awaiting trade | "..#rows.." tracked items" or pending..(pending==1 and " award awaiting trade" or " awards awaiting trade").." | "..#rows.." tracked items"))..(completedAssignments>0 and (" | "..completedAssignments.." completed assignments in history") or "")..capacity.." | "..(s.archivedCount or 0).." archived")
-    if self.demo then panel.empty:SetText("No simulated loot.\nRun /slt test to prepare a fresh SoD loot set.") end
+    if self.demo then panel.empty:SetText("No simulated loot.\nRun /slt test to prepare a fresh Forever loot set.") end
     for i,row in ipairs(panel.rows) do
         local entry=i<=(panel.visibleRows or 6) and rows[panel.page*(panel.visibleRows or 6)+i] or nil; row:SetShown(entry~=nil); row.tracked=entry and entry.id
         if entry then

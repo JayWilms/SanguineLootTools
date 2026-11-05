@@ -1,3 +1,9 @@
+## Alpha.62: Forever test loot and profession filtering
+
+- [ ] Run /slt test solo and as a group leader. Verify Loot lists 23 Forever items before Queue All. Check names, links and tooltips, including all four profession recipes.
+- [ ] In a group, release the recipes to characters with different professions. Confirm a character with Tailoring at skill 1 sees the Tailoring recipe and a character without Tailoring does not. Check Loot and Council still show every recipe.
+- [ ] Confirm the response timer stays at 60 seconds and a missing item or profession lookup leaves the recipe available to respond to.
+
 ## Alpha.61: Live Forever item data and timing
 
 - [ ] Disable ItemDB on every alpha.61 test client. Log in on Forever, run /slt, and check item names, links, slots, levels and tooltips.

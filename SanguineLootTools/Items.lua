@@ -12,30 +12,34 @@ local function nativeItemLink(id)
     if ok and A:EquipmentLink(link) and tonumber(link:match("item:(%d+)")) == id then return link end
 end
 
--- Fixed, researched Classic Era test fixtures. Recipe/relic cases are deliberate.
+-- Fixed samples checked against a Forever 16001 client item dump.
+-- Include equipment, a relic and profession recipes to exercise different eligibility cases.
 function A:TestItems()
     local result = {}
     for _,v in ipairs({
-        {226486,"Gauntlets of Might"},
-        {226591,"Lawbringer Gauntlets"},
-        {226532,"Giantstalker's Leggings"},
-        {226615,"Earthfury Gauntlets"},
-        {226446,"Nightslayer Cover"},
-        {226648,"Cenarion Gloves"},
-        {226562,"Arcanist Crown"},
-        {226572,"Gloves of Prophecy"},
-        {226551,"Felheart Belt"},
-        {228239,"Robe of Volatile Power"},
-        {228257,"Aged Core Leather Gloves"},
-        {228258,"Deep Earth Spaulders"},
-        {228260,"Flameguard Gauntlets"},
-        {228265,"Brutality Blade"},
-        {228267,"Gutgore Ripper"},
-        {228160,"Faithbringer"},
-        {228519,"Striker's Mark"},
-        {228262,"Crimson Shocker"},
-        {229909,"Staff of Order"},
-        {228142,"Earth and Fire"},
+        {279259,"Ironwood Blade"},
+        {279265,"Azerothium Legplates"},
+        {279266,"Robes of Fiery Devastation"},
+        {284716,"Band of the Better Half"},
+        {279246,"Torch of Light"},
+        {279247,"Steadfast Libram"},
+        {279252,"Elderwild Waistcord"},
+        {279255,"Eternity Pauldrons"},
+        {279260,"Forest Defender's Axe"},
+        {279262,"Evergreen Shield"},
+        {279269,"Fel Cape"},
+        {279273,"Hyper Deluxe Sniper Rifle Mk XVII"},
+        {279308,"Plans: Ironwood Blade"},
+        {279301,"Pattern: Elderwild Waistcord"},
+        {279295,"Formula: Torch of Light"},
+        {279315,"Pattern: Robes of Fiery Devastation"},
+        {281586,"Elderwild Construction Hammer",3},
+        {281636,"Museum Keeper's Chain",3},
+        {281637,"Antique Bulwark",3},
+        {282007,"Emerald Watcher's Dreamstaff",3},
+        {284253,"Eternally Frozen Band",3},
+        {284257,"Icesworn Decapitator",3},
+        {284261,"Magically Fortified Legguards",3},
     }) do
         local id=v[1]
         local link=nativeItemLink(id)

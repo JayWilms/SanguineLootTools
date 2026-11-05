@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.61"
+A.version = "0.12.0-alpha.62"
 A.protocol = 17
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -347,7 +347,7 @@ function A:StartDemo()
     self:Act("council", {target = self.me})
     self:SeedTestLoot()
     self:Render()
-    self:Print("Solo test: 20 SoD items await release in Loot. Use Queue on a row, Manage > Queue item, or Queue all to start 60-second responses. Real trading and history saving are disabled. /slt test refreshes; /slt leave-test exits.")
+    self:Print("Solo test: 23 Forever items await release in Loot. Use Queue on a row, Manage > Queue item, or Queue all to start 60-second responses. Real trading and history saving are disabled. /slt test refreshes; /slt leave-test exits.")
 end
 
 
@@ -371,7 +371,7 @@ function A:StartGroupTest()
     self.preparingGroupTest=nil
     self:Publish() -- One complete set of unreleased simulated copies.
     self:Render()
-    self:Print("GROUP TEST: 20 SoD items await release in the Master Looter’s Loot window. Queue individual items or Queue all to start 60-second responses for the group. Assign council/master in Settings. Real bag collection, trading and history saving are disabled. /slt test refreshes; /slt leave-test ends the shared test.")
+    self:Print("GROUP TEST: 23 Forever items await release in the Master Looter’s Loot window. Queue individual items or Queue all to start 60-second responses for the group. Assign council/master in Settings. Real bag collection, trading and history saving are disabled. /slt test refreshes; /slt leave-test ends the shared test.")
     return true
 end
 

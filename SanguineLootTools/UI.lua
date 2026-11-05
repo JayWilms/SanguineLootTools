@@ -1016,7 +1016,7 @@ function A:Render()
     u.popupIcon:SetTexture(self:ItemIcon(current)); u.popupIcon:SetShown(current ~= nil)
     local response = self:PersonalSelection(current)
     local responseStatus = response and ("Your response: " .. self:ResponseLabel(response.choice,current) .. (current.status == "open" and " (click to change)" or " (closed)")) or (current and current.status ~= "open" and "No response recorded (closed)." or "Choose one response below.")
-    u.popupStatus:SetText(current and responseStatus or (s and (hidden>0 and "Items your class cannot use are hidden." or "Wait for the master looter to release loot.") or "Responses will appear after the raid leader starts a session and loot is released."))
+    u.popupStatus:SetText(current and responseStatus or (s and (hidden>0 and "Items outside your class or professions are hidden." or "Wait for the master looter to release loot.") or "Responses will appear after the raid leader starts a session and loot is released."))
     u.popupFacts:SetText(current and self:ItemSummary(current) or "")
     local classStatus,classReason
     if current then classStatus,classReason=self:ClassEligibility(current) end

@@ -161,6 +161,39 @@ assert(A:ClassEligibility(uncached,mage)=='Restricted')
 ''')
 print('Native item data, localized class lists, Forever proficiencies and safe missing-data behavior passed.')
 
+lua=setup()
+lua.execute((SRC/'RaiderUI.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
+lua.execute('''
+local function recipe(id, subclass)
+    itemFacts[id]={9,subclass,''}
+    return {id=id,status='open',link='|cffa335ee|Hitem:'..id..'::::|h[Recipe]|h|r'}
+end
+local leatherworking = recipe(279301,1)
+local tailoring = recipe(279315,2)
+local enchanting = recipe(279295,8)
+local book = recipe(12355,0)
+A.state.items={leatherworking,tailoring,enchanting,book}
+local first, second = 10, 12
+function GetProfessions() return first, second, nil, nil, nil end
+function GetProfessionInfo(index)
+    if index==10 then return 'Tailoring',1,1,75,1,0,197 end
+    if index==12 then return 'Enchanting',1,1,75,1,0,333 end
+end
+local rows, hidden = A:ResponseItems()
+assert(#rows==3 and hidden==1 and rows[1].item==tailoring and rows[2].item==enchanting and rows[3].item==book)
+assert(#A.state.items==4) -- presentation only
+first, second = nil, nil
+rows, hidden = A:ResponseItems()
+assert(#rows==1 and hidden==3 and rows[1].item==book)
+first = 99 -- profession list returned an index whose info isn't ready
+rows, hidden = A:ResponseItems()
+assert(#rows==4 and hidden==0)
+GetProfessions = nil
+rows, hidden = A:ResponseItems()
+assert(#rows==4 and hidden==0)
+''')
+print('Recipe visibility uses learned professions at skill 1 and keeps unknown recipes visible.')
+
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)
 print('Class auto-pass and Lua 5.1 checks passed. No installer generated.')

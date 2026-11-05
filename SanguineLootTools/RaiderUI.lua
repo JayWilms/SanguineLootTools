@@ -1,13 +1,49 @@
 local _,A=...
 
+-- Recipe subclasses and their profession skill-line IDs. Books and
+-- unrecognized subclasses have no safe profession filter.
+local recipeProfessions = {
+    [1] = 165, -- Leatherworking
+    [2] = 197, -- Tailoring
+    [3] = 202, -- Engineering
+    [4] = 164, -- Blacksmithing
+    [5] = 185, -- Cooking
+    [6] = 171, -- Alchemy
+    [7] = 129, -- First Aid
+    [8] = 333, -- Enchanting
+    [9] = 356, -- Fishing
+}
+
+local function knownProfessions(client, ok, ...)
+    if not ok or select("#", ...) < 5 then return nil end
+    local learned = {}
+    for i = 1, 5 do
+        local index = select(i, ...)
+        if index ~= nil then
+            if type(index) ~= "number" or index <= 0 then return nil end
+            local found, _, _, _, _, _, _, skillLine = client:Call("GetProfessionInfo", index)
+            if not found or type(skillLine) ~= "number" or skillLine <= 0 then return nil end
+            learned[skillLine] = true
+        end
+    end
+    return learned
+end
+
 function A:ResponseItems()
     local rows,hidden={},0
+    local professions
     for _,item in ipairs(self.state and self.state.items or {}) do
         -- Keep expired rounds for review while awaiting an award. Completed
         -- awards belong in Voting/History, not a later response prompt.
         if not item.automaticAssignment and (item.status=="open" or item.status=="closed") then
-            local status,reason=self:ClassEligibility(item)
-            if status=="Restricted" then hidden=hidden+1
+            local details = self:ItemDetails(item)
+            local status, reason = self:ClassEligibility(item, nil, details)
+            local profession = details.classID == 9 and recipeProfessions[details.subclassID]
+            if profession and professions == nil then
+                professions = knownProfessions(self.Client, self.Client:Call("GetProfessions")) or false
+            end
+            if status == "Restricted" or (profession and professions and not professions[profession]) then
+                hidden=hidden+1
             else rows[#rows+1]={item=item,status=status,reason=reason} end
         end
     end
@@ -81,7 +117,7 @@ end
 
 function A:ResponseEmptyMessage(hidden)
     if not self.state then return "No active session" end
-    if (hidden or 0)>0 then return "No class-eligible items open" end
+    if (hidden or 0)>0 then return "No eligible items to show" end
     if #self.state.items==0 then return "No loot queued" end
     for _,item in ipairs(self.state.items) do
         if item.status=="queued" then return "Waiting for responses to open" end
