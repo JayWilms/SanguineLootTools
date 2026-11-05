@@ -182,6 +182,13 @@ end
 local rows, hidden = A:ResponseItems()
 assert(#rows==3 and hidden==1 and rows[1].item==tailoring and rows[2].item==enchanting and rows[3].item==book)
 assert(#A.state.items==4) -- presentation only
+function GetProfessions() return second end -- trailing empty slots omitted
+rows, hidden = A:ResponseItems()
+assert(#rows==2 and hidden==2 and rows[1].item==enchanting and rows[2].item==book)
+function GetProfessions() end -- no usable data, so keep recipes visible
+rows, hidden = A:ResponseItems()
+assert(#rows==4 and hidden==0)
+function GetProfessions() return first, second, nil, nil, nil end
 first, second = nil, nil
 rows, hidden = A:ResponseItems()
 assert(#rows==1 and hidden==3 and rows[1].item==book)
@@ -191,6 +198,16 @@ assert(#rows==4 and hidden==0)
 GetProfessions = nil
 rows, hidden = A:ResponseItems()
 assert(#rows==4 and hidden==0)
+itemFacts[279247]={4,7,'INVTYPE_RELIC'}
+local libram = {id=279247,status='open',link='|cffa335ee|Hitem:279247::::|h[Steadfast Libram]|h|r'}
+assert(A:ClassEligibility(libram)=='Restricted')
+classes.player=2
+local originalUnitClass = UnitClass
+function UnitClass(unit)
+    if unit=='player' then return 'Paladin','PALADIN',2 end
+    return originalUnitClass(unit)
+end
+assert(A:ClassEligibility(libram)=='Eligible')
 ''')
 print('Recipe visibility uses learned professions at skill 1 and keeps unknown recipes visible.')
 

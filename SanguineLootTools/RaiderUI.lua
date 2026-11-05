@@ -15,7 +15,7 @@ local recipeProfessions = {
 }
 
 local function knownProfessions(client, ok, ...)
-    if not ok or select("#", ...) < 5 then return nil end
+    if not ok then return nil end
     local learned = {}
     for i = 1, 5 do
         local index = select(i, ...)
@@ -26,7 +26,9 @@ local function knownProfessions(client, ok, ...)
             learned[skillLine] = true
         end
     end
-    return learned
+    -- Some clients omit trailing empty slots. Trust a resolved profession,
+    -- or an explicit five-slot result when the character knows none.
+    if next(learned) or select("#", ...) >= 5 then return learned end
 end
 
 function A:ResponseItems()

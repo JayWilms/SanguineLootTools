@@ -13,9 +13,10 @@ local function nativeItemLink(id)
 end
 
 -- Fixed samples checked against a Forever 16001 client item dump.
--- Include equipment, a relic and profession recipes to exercise different eligibility cases.
+-- Include equipment, relics and profession recipes to exercise different eligibility cases.
 function A:TestItems()
     local result = {}
+    local qualityColors = {[1]="ffffff", [2]="1eff00", [3]="0070dd", [4]="a335ee"}
     for _,v in ipairs({
         {279259,"Ironwood Blade"},
         {279265,"Azerothium Legplates"},
@@ -23,6 +24,8 @@ function A:TestItems()
         {284716,"Band of the Better Half"},
         {279246,"Torch of Light"},
         {279247,"Steadfast Libram"},
+        {279249,"Totem of Urgency"},
+        {279250,"Idol of Swiftness"},
         {279252,"Elderwild Waistcord"},
         {279255,"Eternity Pauldrons"},
         {279260,"Forest Defender's Axe"},
@@ -33,6 +36,11 @@ function A:TestItems()
         {279301,"Pattern: Elderwild Waistcord"},
         {279295,"Formula: Torch of Light"},
         {279315,"Pattern: Robes of Fiery Devastation"},
+        {279322,"Schematic: Hyper Deluxe Sniper Rifle Mk XVII"},
+        {274415,"Recipe: Sweetpaw Jam",1},
+        {274277,"Recipe: Flask of Natural Accuracy"},
+        {255726,"Manual: Leather Tourniquet",2},
+        {16083,"Expert Fishing - The Bass and You",1},
         {281586,"Elderwild Construction Hammer",3},
         {281636,"Museum Keeper's Chain",3},
         {281637,"Antique Bulwark",3},
@@ -43,7 +51,7 @@ function A:TestItems()
     }) do
         local id=v[1]
         local link=nativeItemLink(id)
-            or ("|cff"..(v[3]==3 and "0070dd" or "a335ee").."|Hitem:"..id.."::::::::|h["..v[2].."]|h|r")
+            or ("|cff"..qualityColors[v[3] or 4].."|Hitem:"..id.."::::::::|h["..v[2].."]|h|r")
         result[#result+1]={id=id,link=link}
     end
     return result
@@ -75,6 +83,7 @@ end
 -- independent of the character's current level and learned weapon skills.
 local armorCaps = {4, 4, 3, 2, 1, nil, 3, 1, 1, nil, 2}
 local shieldClasses = {[1]=true, [2]=true, [7]=true}
+local relicClasses = {[7]=2, [8]=11, [9]=7} -- Libram, idol, totem
 local weaponsByClass = {
     [1] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 15, 16, 18},
     [2] = {0, 1, 4, 5, 6, 7, 8},
@@ -222,6 +231,10 @@ function A:ClassEligibility(item, name, details)
     end
     if data.classID == 4 then
         local subclass = data.subclassID
+        local relicClass = data.slot == "INVTYPE_RELIC" and relicClasses[subclass]
+        if relicClass and classID ~= relicClass then
+            return "Restricted", "This class cannot use this relic type."
+        end
         local isArmor = subclass >= 1 and subclass <= 4 and data.slot and data.slot ~= "" and data.slot ~= "INVTYPE_CLOAK"
         if (isArmor and subclass > armorCaps[classID]) or (subclass == 6 and not shieldClasses[classID]) then
             return "Restricted", "This class cannot wear this armour type."

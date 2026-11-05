@@ -1,3 +1,8 @@
+## Alpha.63: Relic and profession response filtering
+
+- [ ] On a Priest with Tailoring and Enchanting, run /slt test and Queue All. After data loads, expect 10 responses. The Steadfast Libram and the Blacksmithing and Leatherworking recipes should be absent. The Tailoring pattern, Enchanting formula and Torch of Light wand should appear. With no other matching skills, also verify the other five profession samples, the totem and the idol stay out of Responses. Loot and Council retain all nine profession samples and all three relics.
+- [ ] On a Shaman, Druid and Paladin, confirm the totem, idol and libram respectively appear in Responses. Check Engineering, Alchemy, Cooking, First Aid and Fishing on characters who know those professions.
+
 ## Alpha.62: Forever test loot and profession filtering
 
 - [ ] Run /slt test solo and as a group leader. Verify Loot lists 23 Forever items before Queue All. Check names, links and tooltips, including all four profession recipes.

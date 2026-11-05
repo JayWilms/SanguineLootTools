@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.62 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.63 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,14 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.62, protocol 17. Commands use /slt.
+Everyone testing together should use alpha.63, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.62
+- The 30-item test pool includes a libram, idol, totem and one sample for
+  each of the nine professions covered by the recipe filter.
+- Apply class rules to librams, idols and totems.
+- Recipe filtering accepts profession lists with omitted empty slots.
 
 NEW SINCE ALPHA.61
 - Solo and group /slt test use 23 Forever items, with Blacksmithing,
