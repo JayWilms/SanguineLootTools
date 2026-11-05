@@ -27,10 +27,7 @@ function A:DiagnosticReport()
         return #s<=40 and s:match("^[%w%.%-]+$") and s or "Unknown"
     end
     lines[#lines+1]="Client: "..(ok and technical(version) or "Unknown").." | build "..technical(build).." | interface "..technical(interface)
-    local db=self:ItemLibrary()
-    local metadataOK,dependencyVersion=self.Client:Call("GetAddOnMetadata","ItemDB","Version")
-    lines[#lines+1]="ItemDB version: "..(metadataOK and technical(dependencyVersion) or "Unknown")
-    lines[#lines+1]="ItemDB: "..(db and "ready" or "missing/not ready").." (external; see installed dependency version)"
+    lines[#lines+1]="Item data: native client APIs"
     local queued,age,bytes=self:NetworkQueueStats()
     lines[#lines+1]=string.format("Queue: %d fragments | %.1fs oldest | %d payload bytes",queued,age,bytes or 0)
     local metrics=self.networkMetrics or {}

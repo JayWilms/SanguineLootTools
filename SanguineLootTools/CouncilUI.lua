@@ -392,10 +392,15 @@ function A:BuildSelectedLootTooltip(u, parent, text)
     end
     pcall(pane.RegisterEvent,pane,"GET_ITEM_INFO_RECEIVED")
     pane:SetScript("OnEvent",function(_,event,id,success)
-        if event=="GET_ITEM_INFO_RECEIVED" and success and A.demo and A:RefreshDemoItems() then A:Render();return end
-        local item=A.state and A:ItemByID(A.selectedItem or 1)
-        if event=="GET_ITEM_INFO_RECEIVED" and success and item and tonumber(item.link:match("item:(%d+)"))==id then
-            A:RenderSelectedLootTooltip(item,true)
+        if event ~= "GET_ITEM_INFO_RECEIVED" or not success then return end
+        if A.demo and A:RefreshDemoItems() then A:Render(); return end
+        if not A.state then return end
+        local selected = A:ItemByID(A.selectedItem or 1)
+        local response = A:ItemByID(A.popupItem or 0)
+        if (selected and tonumber(selected.link:match("item:(%d+)")) == id)
+            or (response and tonumber(response.link:match("item:(%d+)")) == id) then
+            A.ui.selectedLootKey = nil
+            A:Render()
         end
     end)
     parent:SetScript("OnHide",function()

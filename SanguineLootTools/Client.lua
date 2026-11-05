@@ -6,7 +6,6 @@ local unpack=unpack or table.unpack
 local function pack(...) return {n=select("#",...),...} end
 local providers={
     GetBuildInfo=function() return GetBuildInfo end,
-    GetAddOnMetadata=function() return (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata end,
     GetServerTime=function() return GetServerTime end,
     GetTime=function() return GetTime end,
     InCombatLockdown=function() return InCombatLockdown end,
@@ -31,6 +30,8 @@ local providers={
     ["C_Container.PickupContainerItem"]=function() return C_Container and C_Container.PickupContainerItem end,
     ["C_Item.GetItemGUID"]=function() return C_Item and C_Item.GetItemGUID end,
     ["C_Item.IsBound"]=function() return C_Item and C_Item.IsBound end,
+    ["C_Item.GetItemInfo"]=function() return (C_Item and C_Item.GetItemInfo) or GetItemInfo end,
+    ["C_TooltipInfo.GetHyperlink"]=function() return C_TooltipInfo and C_TooltipInfo.GetHyperlink end,
     ["C_Item.GetItemInfoInstant"]=function() return C_Item and C_Item.GetItemInfoInstant end,
     ["C_Item.GetItemIconByID"]=function() return C_Item and C_Item.GetItemIconByID end,
     ["C_TooltipInfo.GetBagItem"]=function() return C_TooltipInfo and C_TooltipInfo.GetBagItem end,
@@ -44,7 +45,6 @@ local providers={
     CheckInteractDistance=function() return CheckInteractDistance end,
     ClearCursor=function() return ClearCursor end,
     CursorHasItem=function() return CursorHasItem end,
-    LibStub=function() return LibStub end,
 }
 function C:Get(name)
     local getter=providers[name]
@@ -87,7 +87,7 @@ function C:InGroup()
 end
 function C:APIInventory()
     local result={}
-    for name in pairs(providers) do result[#result+1]={name=name,available=type(self:Get(name))=="function" or (name=="LibStub" and self:Get(name)~=nil)} end
+    for name in pairs(providers) do result[#result+1]={name=name,available=type(self:Get(name))=="function"} end
     table.sort(result,function(a,b) return a.name<b.name end)
     return result
 end

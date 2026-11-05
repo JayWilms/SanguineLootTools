@@ -16,6 +16,7 @@ A.me='Master-Realm';A.leader=A.me;A.roster={[A.me]='player',['Winner-Realm']='ra
 A.state={id='raid-session',master=A.me,items={},trackedLoot={},responseDuration=120,
  responseOptions=A:DefaultResponses(),rules=A:DefaultVoting(),council={[A.me]=true}}
 function A:ClassEligibility() return 'Eligible','' end
+function A:ItemDetails() return {} end
 function A:SeedSoloTestResponses() end
 function A:Print(message) lastMessage=message end
 function A:Act(op,p) p.op=op;return self:ReduceLoot(self.me,p) end

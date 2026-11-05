@@ -22,6 +22,7 @@ function A.Client:Uptime() return now end
 function A.Client:ServerTime() return 100000+math.floor(now) end
 function A.Client:Invoke() return false end
 function A.Client:Call(name,prefix,message,channel,target)
+    if name=='C_Item.GetItemInfo' or name=='UnitClass' then return false end
     assert(name=='C_ChatInfo.SendAddonMessage')
     allowance=math.min(10,allowance+math.max(0,now-allowanceAt)*serverRate);allowanceAt=now
     if now<blockedUntil or allowance+0.000001<1 then failures=failures+1;return true,3 end

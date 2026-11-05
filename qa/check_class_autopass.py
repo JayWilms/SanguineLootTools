@@ -7,26 +7,42 @@ SRC=ROOT/'SanguineLootTools'
 def setup(ready=True):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute('A={};SlashCmdList={};function CreateFrame() return {RegisterEvent=function() end,SetScript=function() end} end')
-    for name in ['Core','Features','Archive','Awards','Voting','ResponseConfig','Responses','Items','Equipment','StateDelta','WireCodec','Network','CouncilUI']:
+    for name in ['Core','Client','Features','Archive','Awards','Voting','ResponseConfig','Responses','Items','Equipment','StateDelta','WireCodec','Network','CouncilUI']:
         lua.execute((SRC/f'{name}.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
     lua.globals().ready=ready
     lua.execute('''
 now=100000
 classes={player=1,raid2=8,raid4=3}
-db={PROFICIENCY={armorCap={[1]=4,[8]=1,[3]=3}}}
-function db:IsReady() return ready end
-function db:HasItem(id) return id==12345 end
-function db:GetInfo() return 'Restricted helm',4,4,4,'INVTYPE_HEAD',60,60 end
-function db:GetItemType() return 'Plate' end
-function db:CanUse(id,class,level) return class~=8 end
-function LibStub() return db end
-A.Client={}
-function A.Client:Invoke(fn,...) if type(fn)~='function' then return false end;return pcall(fn,...) end
-function A.Client:Call(name,unit)
-    if name=='UnitClass' then return true,'Class','CLASS',classes[unit] end
-    if name=='UnitLevel' then return true,60 end
-    error('Unexpected native call: '..name)
-end
+local tokens={[1]='WARRIOR',[3]='HUNTER',[4]='ROGUE',[8]='MAGE'}
+function UnitClass(unit) return 'Class',tokens[classes[unit]],classes[unit] end
+function UnitLevel(unit) return unit=='raid4' and 20 or 60 end
+ITEM_CLASSES_ALLOWED='Classes: %s'
+LOCALIZED_CLASS_NAMES_MALE={WARRIOR='Warrior',HUNTER='Hunter',ROGUE='Rogue',MAGE='Mage'}
+Enum={TooltipDataLineType={UsageRequirement=99},TooltipDataUsageRequirementType={RaceClass=7}}
+local armor, weapon, misc = 4, 2, 15
+itemFacts={
+ [12345]={armor,4,'INVTYPE_HEAD'},
+ [12346]={armor,2,'INVTYPE_HEAD'},
+ [12347]={weapon,0,'INVTYPE_WEAPON'},
+ [12348]={armor,1,'INVTYPE_CLOAK'},
+ [12349]={misc,0,'','Classes: Warrior, Hunter'},
+ [12350]={misc,0,'','Classes: Warrior, Unrecognised'},
+ [12351]={misc,0,'','Races: Other',false},
+ [12352]={misc,0,''},
+}
+local function itemID(link) return tonumber(link:match('item:(%d+)')) end
+C_Item={GetItemInfo=function(link)
+ if not ready or type(link)~='string' then return end
+ local facts=itemFacts[itemID(link)]
+ if not facts then return end
+ return 'Item',link,4,60,60,'Gear','Type',1,facts[3],1,0,facts[1],facts[2]
+end}
+C_TooltipInfo={GetHyperlink=function(link)
+ if not ready or tooltipPending then return end
+ local facts=itemFacts[itemID(link)]
+ if not facts then return end
+ return {lines={{leftText='Item'},facts[4] and {leftText=facts[4],type=99,requirementType=7,usable=facts[5]} or nil}}
+end}
 function A.Client:ServerTime() return now end
 function A.Client:ClockReady() return true end
 function A.Client:Combat() return false end
@@ -76,7 +92,7 @@ assert(item.responses['Mage-Realm'].autoPass and published=='classAutoPass' and 
 local oldPublishes=publishes
 A:TickResponses();assert(publishes==oldPublishes)
 ''')
-print('Late database readiness adds one leader-authorized update without repeat traffic.')
+print('Late client item data adds one leader-authorized update without repeat traffic.')
 
 lua=setup(False)
 lua.execute('''
@@ -104,7 +120,7 @@ lua.execute('''
 classes.raid2=1
 A:TickResponses();assert(not item.responses['Mage-Realm'])
 classes.raid2=8;A:TickResponses();assert(item.responses['Mage-Realm'].autoPass)
-ready=false;A:TickResponses();assert(item.responses['Mage-Realm'].autoPass)
+ready=false;item.link=item.link:gsub('::::',':::::');A:TickResponses();assert(item.responses['Mage-Realm'].autoPass)
 ready=true;classes.raid2=1;A:TickResponses();assert(not item.responses['Mage-Realm'])
 classes.raid4=8;A.roster['NewMage-Realm']='raid4'
 A:TrackResponseMembers();assert(item.responses['NewMage-Realm'].autoPass)
@@ -115,6 +131,35 @@ classes.raid4=1
 assert(A:RefreshClassAutoPasses(item,true)==0 and item.ballotVersion==version)
 ''')
 print('Eligibility changes, transient unknown data, new members, rerolls and immutable awarded rounds passed.')
+
+lua=setup()
+lua.execute('''
+local function sample(id)
+ return {link='|cffa335ee|Hitem:'..id..'::::|h[Sample]|h|r'}
+end
+local warrior, mage = A.me, 'Mage-Realm'
+A.roster['Other-Realm']='raid4'
+assert(A:ClassEligibility(sample(12346),warrior)=='Eligible') -- lighter armour
+assert(A:ClassEligibility(sample(12348),mage)=='Eligible') -- cloak
+assert(A:ClassEligibility(sample(12349),mage)=='Restricted') -- token class list
+assert(A:ClassEligibility(sample(12349),warrior)=='Eligible')
+assert(A:ClassEligibility(sample(12350),mage)=='Unknown') -- unrecognised localized class
+assert(A:ClassEligibility(sample(12351),warrior)=='Unknown') -- local-only flag
+assert(A:ItemEligibility(sample(12351),warrior)=='Restricted')
+assert(A:ItemEligibility(sample(12351),mage)=='Unknown')
+assert(A:ClassEligibility(sample(12346),'Other-Realm')=='Eligible')
+assert(A:ItemEligibility(sample(12346),'Other-Realm')=='Restricted') -- level is advisory
+classes.raid4=4
+assert(A:ClassEligibility(sample(12347),'Other-Realm')=='Eligible') -- Forever rogue axes
+assert(A:ClassEligibility(sample(12347),mage)=='Restricted')
+assert(A:ClassEligibility(sample(12349),'NotInRoster-Realm')=='Unknown')
+local uncached=sample(12346)
+tooltipPending=true
+assert(A:ClassEligibility(uncached,mage)=='Unknown')
+tooltipPending=false
+assert(A:ClassEligibility(uncached,mage)=='Restricted')
+''')
+print('Native item data, localized class lists, Forever proficiencies and safe missing-data behavior passed.')
 
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)

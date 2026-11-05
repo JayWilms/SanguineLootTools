@@ -9,10 +9,12 @@ end
 function A:RefreshClassAutoPasses(item,apply)
     if not item or (item.status~="open" and item.status~="closed") then return 0 end
     local count=0
+    local details
     for name in pairs(item.responseMembers or {}) do
         local response=item.responses[name]
         if self.roster[name] and (not response or response.autoPass) then
-            local status=self:ClassEligibility(item,name)
+            details = details or self:ItemDetails(item)
+            local status=self:ClassEligibility(item,name,details)
             if status=="Restricted" and not response then
                 count=count+1
                 if apply then

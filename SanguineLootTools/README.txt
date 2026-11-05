@@ -1,13 +1,23 @@
-Sanguine Loot Tools 0.12.0-alpha.60 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.61 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
 Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
-ItemDB and its publisher-required dependencies remain separate required installs.
-Everyone testing together should use alpha.60, protocol 17. Commands use /slt.
+No separate addon dependencies are required.
+Everyone testing together should use alpha.61, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.60
+- Item details come from the game. Native tooltips show stats, and class
+  restrictions plus Forever armour and weapon rules drive auto-pass.
+- Missing or ambiguous item data keeps responses available. The leader
+  rechecks when data arrives and preserves explicit replies.
+- ItemDB is no longer required. Item details load locally, so there are no
+  new addon messages or wire fields for item data. Protocol 17 retained.
+- Test on live Forever with ItemDB disabled. Check cached and uncached loot
+  on both the leader and raider clients. See TESTING.md in the repository.
 
 NEW SINCE ALPHA.59
 - Routine loot transfers run quietly: no receiving-loot popup, fragment

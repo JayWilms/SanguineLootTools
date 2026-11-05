@@ -1,3 +1,10 @@
+## Alpha.61: Live Forever item data and timing
+
+- [ ] Disable ItemDB on every alpha.61 test client. Log in on Forever, run /slt, and check item names, links, slots, levels and tooltips.
+- [ ] Test a tier item with explicit class restrictions, a ring or cloak, lighter armour, a shield, a rogue one-handed axe, a weapon the class cannot train, and a recipe or token with unclear restrictions. Compare the raider's response list to the leader's Auto Pass entries. A level or learned-skill requirement must not create a class auto-pass. Verify a manual response survives late item data.
+- [ ] With two players out of combat, queue one actual loot item and then repeat with a batch. Use the same item and group on alpha.60 (ItemDB enabled) and alpha.61 (ItemDB disabled), with matching versions per run. Use synced recordings or clocks to log Queue-to-response-frame time, then response-click-to-council time. Repeat on warm items and use previously unseen items for the cold run.
+- [ ] Separately note when item details and eligibility settle after the response appears. Compare Last loot release fragments and payload bytes, throttle counts, and decode failures in /slt diagnostics before and after each batch. The existing transport simulations exercise the codec and queue, while only live tests measure server throttling and item cache latency.
+
 ## Alpha.60: Quiet loot transfers
 
 - Routine loot transfers no longer open a loading popup or display fragment counters in Voting/Responses. Empty response windows retain their normal waiting message; the timer is reserved for response deadlines.
