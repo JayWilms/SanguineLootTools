@@ -1,0 +1,22 @@
+name: Validate alpha.64 staging
+on:
+  push:
+    branches: [alpha64-staging]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r qa/requirements.txt
+      - run: python qa/run_checks.py
+      - run: python tools/build_install.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-installer
+          path: outputs/*-install.zip
+          if-no-files-found: error
