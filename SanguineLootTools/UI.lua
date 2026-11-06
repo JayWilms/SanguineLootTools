@@ -788,6 +788,7 @@ end
 function A:ShowLauncher()
     if not self.state or #self.state.items==0 then self:RequestSync() end
     self:BuildUI();self:Render();self:RenderLauncher();self.ui.launcher:Show()
+    self:FocusWindow(self.ui.launcher)
 end
 
 function A:ShowResponses()

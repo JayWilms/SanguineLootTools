@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.69"
+A.version = "0.12.0-alpha.70"
 A.protocol = 19
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -136,7 +136,7 @@ function A:Reduce(sender, p)
     if not self.Client:ClockReady() then return false,"Client clocks unavailable. Session changes are disabled; use /slt diagnostics." end
     if not self.roster[sender] or type(p) ~= "table" then return false, "Not a raid member." end
     if p.op == "start" then
-        if sender ~= self.leader or not self:IsGameLeader() or self.state then return false, "Only the raid leader can start an idle session." end
+        if sender ~= self.leader or (not self:IsSoloTest() and not self:IsGameLeader()) or self.state then return false, "Only the raid leader can start an idle session." end
         if p.groupTest~=nil and p.groupTest~=true then return false,"Invalid test mode." end
         if self.Client:InGroup() and not self.Client:InRaid() and p.groupTest~=true then return false,"Party sessions are available through /slt test only." end
         if p.groupTest and not self.Client:InGroup() then return false,"Shared tests require a party or raid." end

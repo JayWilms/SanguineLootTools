@@ -1,6 +1,11 @@
 # Sanguine Loot Tools
 
-Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.69**, protocol **19** (private testing build). Native Master Loot moves eligible automatic assignments without waiting for recipient messages; stacked green materials retain quantities and can merge into existing stacks. Collect for council automatically sends eligible single-copy loot to the actual Master Looter, unawarded, while preserving real bag tracking and trade timers for normal responses and voting. Council stacks remain manual. History recording synchronises in the background and distinguishes native evidence from bag GUID verification. Completed automatic Disenchant and Guild Bank assignments are hidden from active Loot while their history remains available. Early and urgent trade warnings use Alarm Clock 2 (12867), with the existing On/Off switch and no dropdown. A tester reported instant native distribution on alpha.54, with further raid checks continuing. Test response rounds remain 60 seconds.
+Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.70**, protocol **19** (private testing build). Native Master Loot moves eligible automatic assignments without waiting for recipient messages; stacked green materials retain quantities and can merge into existing stacks. Collect for council automatically sends eligible single-copy loot to the actual Master Looter, unawarded, while preserving real bag tracking and trade timers for normal responses and voting. Council stacks remain manual. History recording synchronises in the background and distinguishes native evidence from bag GUID verification. Completed automatic Disenchant and Guild Bank assignments are hidden from active Loot while their history remains available. Early and urgent trade warnings use Alarm Clock 2 (12867), with the existing On/Off switch and no dropdown. A tester reported instant native distribution on alpha.54, with further raid checks continuing. Test response rounds remain 60 seconds.
+
+## New in alpha.70
+
+- /slt brings the launcher to the front even when it is already open.
+- /slt test starts and restarts solo and shared test sessions.
 
 ## New in alpha.69
 
@@ -12,7 +17,7 @@ Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.69*
 
 ## Installation
 
-Download the [alpha.69 installer](dist/SanguineLootTools-0.12.0-alpha.69-install.zip). **Update all testers together and start a new normal session:** protocol 19 requires alpha.69 on every client. Saved raid setups/profiles are retained; review the Quality Rules before enabling automation. Enable Automatic Collection for council pickup; enable Automatic Awards separately for direct awards. The Quality Rules now control each item quality directly; the separate addon threshold is removed. Both automation paths still require the appropriate game Master Loot threshold. See the [raid testing checklist](TESTING.md). Previous installers remain in `dist`.
+Download the [alpha.70 installer](dist/SanguineLootTools-0.12.0-alpha.70-install.zip). **Update all testers together and start a new normal session:** use alpha.70 on every client (protocol 19). Saved raid setups/profiles are retained; review the Quality Rules before enabling automation. Enable Automatic Collection for council pickup; enable Automatic Awards separately for direct awards. The Quality Rules now control each item quality directly; the separate addon threshold is removed. Both automation paths still require the appropriate game Master Loot threshold. See the [raid testing checklist](TESTING.md). Previous installers remain in `dist`.
 
 Copy the `SanguineLootTools` folder into your game's `Interface/AddOns` folder. No separate addon dependencies are required. Enable the addon and **Load out of date AddOns** at character selection. Use `/slt` in game to open the launcher.
 

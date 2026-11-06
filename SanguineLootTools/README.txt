@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.69 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.70 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,12 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.69, protocol 19. Commands use /slt.
+Everyone testing together should use alpha.70, protocol 19. Commands use /slt.
 Start a new normal raid session when testing the upgrade.
+
+NEW SINCE ALPHA.69
+- /slt brings the launcher to the front when it is already open.
+- /slt test can start and restart solo and shared test sessions.
 
 NEW SINCE ALPHA.68
 - Takeover priority is Raid Leader, Master Looter, then the named Raid Assistant.

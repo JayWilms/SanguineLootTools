@@ -1020,7 +1020,7 @@ function A:RenderMasterSettings()
     if not s and self.Client:InGroup() then name,status=self:ReadGameMaster() end
     local pending=self.masterHandoff
     local message
-    if self.demo then message="Test Master Looter: "..s.master
+    if self.demo and s then message="Test Master Looter: "..s.master
     elseif (s and s.masterBlocked) or status=="pending" or status=="restricted" then
         message="Waiting for WoW’s Master Looter. Loot actions are paused."
     elseif s then
