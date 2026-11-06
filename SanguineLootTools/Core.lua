@@ -2,8 +2,8 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.67"
-A.protocol = 17
+A.version = "0.12.0-alpha.68"
+A.protocol = 18
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
 A.roster = {}
@@ -58,12 +58,20 @@ function A:RefreshRoster()
             end
         end
     end
-    if self.state and (self.state.leader ~= self.leader or (not self.state.groupTest and not self.Client:InRaid())) then
+    local state=self.state
+    local liveRaid=state and not self.demo and not state.groupTest and self.Client:InRaid()
+    if liveRaid and state.leader~=self.leader and not self.recoveryPending then
+        self.recoveryPending=true
+        if self.ResetTestTransport then self:ResetTestTransport() end
+        self:Print("Raid leadership changed. Loot actions are paused while Sanguine checks for a recovery copy.")
+    end
+    if state and not liveRaid and (state.leader ~= self.leader or (not state.groupTest and not self.Client:InRaid())) then
         self.state, self.rev, self.demo, self.groupTest = nil, 0, nil, nil
         if self.ResetTestTransport then self:ResetTestTransport() end
         self:Print("Leadership changed or you left the raid. The old session has stopped; the leader can start a new one.")
     end
-    if self.OnVotingRosterChanged then self:OnVotingRosterChanged() end
+    if self.CheckRecoveryRoster then self:CheckRecoveryRoster() end
+    if not self.recoveryPending and self.OnVotingRosterChanged then self:OnVotingRosterChanged() end
     if self.Render then self:Render() end
 end
 
@@ -85,7 +93,7 @@ end
 function A:IsLeader() return self.me and self.me == self.leader end
 function A:IsSoloTest() return self.demo and not self.groupTest end
 function A:TestLabel() return self.groupTest and "GROUP TEST" or "SOLO TEST" end
-function A:IsMaster() return self.state and self.state.master == self.me and not self.state.masterBlocked end
+function A:IsMaster() return self.state and self.state.master == self.me and not self.state.masterBlocked and not self.recoveryPending end
 function A:IsCouncilMember(name)
     local s = self.state
     return s and name and ((s.council and s.council[name] == true) or (s.master == name and not s.masterBlocked)) or false
@@ -331,6 +339,9 @@ function A:Reduce(sender, p)
 end
 
 function A:Act(op, data)
+    if self.recoveryPending and op~="end" then
+        self:Print("Loot actions are paused during session recovery.");return false
+    end
     if not self.state and self.raidSetupOperations[op] then return self:ApplyIdleRaidSetting(op,data or {}) end
     if not self.Client:ClockReady() then self:Print("Client clocks unavailable. Session actions are disabled; use /slt diagnostics.");return false end
     data = data or {}

@@ -1,3 +1,11 @@
+## Alpha.68: Loot session recovery (protocol 18)
+
+- [ ] Install alpha.68 on at least three clients and start a fresh normal raid session. Assign a Master Looter or council member distinct from the leader. Keep the backup online for both recovery tests.
+- [ ] Open responses on one item, cast a vote on another, and award a third without trading it. Reload the Raid Leader. Check that Sanguine resumes automatically with the original response deadline, recorded votes, winner and item holder.
+- [ ] Repeat with a Raid Leader promotion while the original leader is online. Then repeat with the original leader disconnected and the designated backup still online. Rejoin on the original leader and check that only the current leader controls the session.
+- [ ] Test with the backup absent and with a newer public revision than the private copy. Verify Sanguine reports the missing recovery copy instead of continuing from stale votes or awards. Use /slt sync to retry.
+- [ ] Check the pending trade before and after recovery. Verify it is not duplicated, an unauthorised raider cannot see private ballots, and automatic collection and awards stay off until re-enabled. Test at least one real Forever trade separately.
+
 ## Alpha.67: Optional Transmog response
 
 - [ ] With everyone on alpha.67, add Transmog from the Responses settings and start a fresh round. Verify the choice appears on a second client and a submitted Transmog response appears in Voting.

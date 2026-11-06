@@ -213,7 +213,7 @@ function A:DeleteProfile(name)
 end
 
 function A:PersistSession()
-    if self.demo or not self:IsLeader() or not self.state then return end
+    if self.demo or self.recoveryPending or not self:IsLeader() or not self.state then return end
     self:InitStorage()
     SanguineLootCouncilDB.checkpoints[self.me] = {
         protocol = self.protocol, state = copy(self.state), rev = self.rev,
@@ -231,12 +231,15 @@ function A:RecoveryAvailable()
     self:InitStorage()
     if self.demo or not self:IsLeader() or self.state then return false end
     local saved = SanguineLootCouncilDB.checkpoints[self.me]
-    return saved and (saved.protocol == self.protocol or saved.protocol == 3 or saved.protocol == 4 or saved.protocol == 5 or saved.protocol == 6 or saved.protocol == 7 or saved.protocol == 8 or saved.protocol == 9 or saved.protocol == 10 or saved.protocol == 11 or saved.protocol == 12 or saved.protocol == 13) and type(saved.state) == "table"
+    return saved and (saved.protocol == self.protocol or saved.protocol == 17 or saved.protocol == 3 or saved.protocol == 4 or saved.protocol == 5 or saved.protocol == 6 or saved.protocol == 7 or saved.protocol == 8 or saved.protocol == 9 or saved.protocol == 10 or saved.protocol == 11 or saved.protocol == 12 or saved.protocol == 13) and type(saved.state) == "table"
         and not saved.state.groupTest and saved.state.leader == self.me and type(saved.savedAt) == "number"
         and A.Client:ServerTime() >= saved.savedAt and A.Client:ServerTime() - saved.savedAt <= 43200
 end
 
 function A:ResumeSession()
+    if self.recoveryPending or self.recoveryHasNewer then
+        self:Print("The saved checkpoint could be stale. Use /slt sync to retry recovery.");return false
+    end
     if not self:RecoveryAvailable() then self:Print("No compatible saved session from the last 12 hours is available for this raid leader."); return false end
     local saved = SanguineLootCouncilDB.checkpoints[self.me]
     local overlap = false
@@ -244,8 +247,13 @@ function A:ResumeSession()
         if name ~= self.me and self.roster[name] then overlap = true end
     end
     if not overlap then self:Print("No other member of the saved raid is present. Start a new session for this raid."); return false end
+    return self:RestoreSession(saved, false)
+end
+
+function A:RestoreSession(saved, recovered)
     self.state, self.rev = copy(saved.state), saved.rev + 1
     local s = self.state
+    s.leader = self.me
     s.responseOptions=self:CleanResponses(s.responseOptions) or self:DefaultResponses()
     s.responseNextID=s.responseNextID or 6
     s.responseConfigRevision=s.responseConfigRevision or 0
@@ -254,15 +262,17 @@ function A:ResumeSession()
     s.lootConfiguration=self:CleanLootConfiguration(s.lootConfiguration) or self:DefaultLootConfiguration()
     -- Resume retains rules but requires explicit re-enabling of physical automation.
     s.lootConfiguration.automatic=false;s.lootConfigRevision=(s.lootConfigRevision or 0)+1
+    if recovered then s.lootConfiguration.collection=false end
     s.warningSettings=self:CleanWarningSettings(s.warningSettings) or self:DefaultWarningSettings()
     s.trackedLoot, s.lootSequences = s.trackedLoot or {}, {}
-    s.autoCollect = s.autoCollect ~= false
+    s.autoCollect = not recovered and s.autoCollect ~= false
     for _, entry in ipairs(s.trackedLoot) do entry.verifiedHolder = false end
     s.responseDuration = self:ValidResponseDuration(s.responseDuration) and s.responseDuration or 60
     s.masterFallback = s.masterFallback or (not s.masterWasGame and s.master) or SanguineLootCouncilDB.raidSetup.master or self.me
     s.masterAutoSync = nil
     self:ApplyGameMaster()
     s.historyID = s.historyID or s.id
+    s.recoveredFrom = s.id
     s.id = tostring(A.Client:ServerTime()) .. ":" .. tostring(math.random(100000, 999999)) .. ":resume"
     for name in pairs(s.council) do if not self.roster[name] then s.council[name] = nil end end
     for _, item in ipairs(s.items) do
@@ -279,7 +289,7 @@ function A:ResumeSession()
         if item.status=="open" and not item.responseDeadline then
             item.responseDuration=s.responseDuration;item.responseDeadline=A.Client:ServerTime()+item.responseDuration
         end
-        if item.status~="awarded" then
+        if not recovered and item.status~="awarded" then
             item.deadline=false
             if item.voting=="closed" then item.voting="open";item.closedResults=false end
         end
@@ -300,7 +310,8 @@ function A:ResumeSession()
     end
     self:Publish()
     self:Changed()
-    self:Print("Saved session resumed. Loot, responses and valid council votes have been restored.")
+    self:Print(recovered and "Loot session recovered. Check any in-flight deliveries before re-enabling automatic loot routing."
+        or "Saved session resumed. Loot, responses and valid council votes have been restored.")
     return true
 end
 

@@ -104,6 +104,7 @@ function A:RequestMasterHandoff(target)
 end
 
 function A:SyncGameMaster()
+    if self.recoveryPending then return end
     self:CheckMasterHandoff()
     if self.demo or not self:IsLeader() or not self.state then
         if self.RenderMasterSettings then self:RenderMasterSettings() end

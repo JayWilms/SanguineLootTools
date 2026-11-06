@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.67 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.68 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,16 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.67, protocol 17. Commands use /slt.
-Start a new normal raid session; do not resume a protocol-16 or older session.
+Everyone testing together should use alpha.68, protocol 18. Commands use /slt.
+Start a new normal raid session when testing the upgrade.
+
+NEW SINCE ALPHA.67
+- Recover a confirmed session after the Raid Leader reloads or changes.
+- One designated Master Looter or council member keeps the private ballot
+  backup. Recovery pauses if a complete copy of the latest known revision
+  cannot be verified. Use /slt sync to retry.
+- Check pending trades and any deliveries in progress before re-enabling
+  automatic collection and awards after recovery.
 
 NEW SINCE ALPHA.66
 - Enable Transmog from Settings > Responses > Raid Response Choices.

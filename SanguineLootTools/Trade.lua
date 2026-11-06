@@ -158,6 +158,7 @@ function A:PromptTradeItems()
 end
 
 function A:AcceptTradeItems(context)
+    if self.recoveryPending then self:Print("Loot actions are paused during session recovery.");return false end
     if not context or not self.state or context.sid~=self.state.id or context.serial~=self.tradeSerial
         or A.Client:Uptime()>context.expires or A.Client:Combat() or self:TradePartner()~=context.target then
         self:Print("The trade changed. Click Trade to review the current items.");return false

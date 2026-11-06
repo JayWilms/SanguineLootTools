@@ -14,6 +14,7 @@ checks = [
     'check_trade_timers.py',
     'check_raid_member_pickers.py',
     'check_raid_setup.py',
+    'check_recovery.py',
     'check_window_drag.py',
     'check_window_layers.py',
     'check_class_autopass.py',
