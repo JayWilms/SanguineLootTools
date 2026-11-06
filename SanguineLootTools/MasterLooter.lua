@@ -42,9 +42,16 @@ function A:GameMasterState()
     if not self.roster[fallback] then fallback = s.leader end
     if self.demo then return fallback, "manual", false, false end
     local name, status = self:ReadGameMaster()
+    if s.delegatedHost and name and self:RecoveryOnline(name)==false then
+        return s.leader, "recovery", false, true
+    end
     if name then return name, "game", false, true end
+    if s.delegatedHost and self:RecoveryOnline(fallback)==false then fallback=s.leader end
     local blocked = status == "pending" or status == "restricted" or (status == "unavailable" and (s.masterWasGame == true or s.masterBlocked == true))
     local wasGame = status == "pending" or ((status == "unavailable" or status == "restricted") and s.masterWasGame == true)
+    if s.delegatedHost and blocked and (s.masterSource=="recovery" or self:RecoveryOnline(s.master)==false) then
+        return s.leader, "recovery", false, wasGame
+    end
     return blocked and s.master or fallback, status, blocked, wasGame
 end
 
@@ -79,7 +86,7 @@ function A:CheckMasterHandoff()
 end
 
 function A:RequestMasterHandoff(target)
-    if not self:IsLeader() or not self.roster[target] or self.demo then
+    if not self:IsGameLeader() or not self.roster[target] or self.demo then
         return false, "Only the raid leader can hand off Master Loot to a current member."
     end
     local sid = self.state and self.state.id

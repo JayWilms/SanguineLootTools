@@ -23,6 +23,96 @@ function A:ApplyWarningSettings(value)
     else return self:Act("warningSettings",{settings=clean}) end
     return true
 end
+function A:AnnouncementSettings()
+    local source=self.state and self.state.announcementSettings
+        or (not self.state and SanguineLootCouncilDB and SanguineLootCouncilDB.announcementSettings)
+    local saved=type(source)=="table" and source or {}
+    return {tracked=saved.tracked==true,responses=saved.responses~=false,awards=saved.awards~=false}
+end
+
+function A:EditAnnouncementSetting(p)
+    local settings=self:AnnouncementSettings()
+    if type(p.key)~="string" or settings[p.key]==nil or type(p.enabled)~="boolean" then return end
+    settings[p.key]=p.enabled
+    return settings
+end
+
+local announcementEvent={lootReport="tracked",bagLoot="tracked",open="responses",queueLoot="responses",
+    award="awards",correctAward="awards"}
+function A:LiveAnnouncementSettings(op)
+    local key=announcementEvent[op]
+    if key and self.state and not self.demo and not self.state.groupTest and not self.recoveryPending
+        and self:IsLeader() and self.Client:InRaid() then
+        local settings=self:AnnouncementSettings()
+        if settings[key] then return settings end
+    end
+end
+
+local function announcementLabel(self,link,limit)
+    link=self:EquipmentLink(link)
+    local name=link and link:match("|h%[(.-)%]|h")
+    if name and not name:find("[|%c]") then
+        if #link<=limit then return link end
+        if #name+2<=limit then return "["..name.."]" end
+    end
+    local itemID=link and link:match("item:(%d+)")
+    return itemID and #itemID+6<=limit and ("Item #"..itemID) or "Item"
+end
+
+local function announceItems(self,prefix,links,suffix)
+    if #links==0 then return end
+    local message=prefix
+    for i,link in ipairs(links) do
+        local separator=i>1 and ", " or ""
+        local rest=i<#links and (" and "..(#links-i).." more") or ""
+        local limit=255-#message-#separator-#rest-#suffix
+        if limit<4 then break end
+        message=message..separator..announcementLabel(self,link,limit)
+        -- Reserve space for the number of links left before trying the next.
+        if i==#links or #message+#rest+#suffix+6>255 then
+            message=message..rest
+            break
+        end
+    end
+    self.Client:Call("C_ChatInfo.SendChatMessage",message..suffix,"RAID")
+end
+
+function A:AnnounceLootAction(p,settings,trackedBefore)
+    local op=p.op
+    if settings.tracked and (op=="lootReport" or op=="bagLoot") then
+        local links={}
+        for i=trackedBefore+1,#self.state.trackedLoot do
+            local entry=self.state.trackedLoot[i]
+            if not entry.routePolicy and self:CanQueueTrackedLoot(entry) then links[#links+1]=entry.link end
+        end
+        announceItems(self,"[Sanguine] Tracked for council: ",links,".")
+    elseif settings.responses and (op=="open" or (op=="queueLoot" and p.release==true and not p.attach)) then
+        local links,duration={}
+        local function add(item)
+            if item and item.status=="open" then
+                links[#links+1]=item.link
+                duration=item.responseDuration
+            end
+        end
+        if op=="open" then add(self:ItemByID(p.item))
+        else
+            for _,row in ipairs(p.entries or {p}) do
+                local entry=self:TrackedByID(row.tracked)
+                if entry then add(self:ItemByID(entry.item)) end
+            end
+        end
+        local suffix=duration and duration>0 and (" — "..duration.." seconds to respond.") or " — no time limit."
+        announceItems(self,"[Sanguine] Responses open for ",links,suffix)
+    elseif settings.awards and (op=="award" or op=="correctAward") then
+        local item=self:ItemByID(p.item)
+        if not item or item.automaticAssignment then return end
+        local winner=item.winner:gsub("[%c|]","")
+        local prefix=op=="correctAward" and "[Sanguine] Award corrected: " or "[Sanguine] "
+        local suffix=(op=="correctAward" and " now awarded to " or " awarded to ")..winner.."."
+        announceItems(self,prefix,{item.link},suffix)
+    end
+end
+
 function A:IsLootController()
     return self:IsLeader() or self:IsMaster()
 end
@@ -46,12 +136,60 @@ function A:AddonMemberStatus(name)
     if not self:AddonCheckFresh() then return "No reply","No current compatible-session check. Recheck the raid." end
     if entry and entry.version then
         if entry.version~=self.version or entry.wire~=self.protocol then return "Version mismatch",entry.version.." / protocol "..entry.wire end
-        if entry.session~=r.scope then return "No reply","Addon replied, but session synchronization is not confirmed." end
+        if entry.session~=r.scope then return "Session mismatch","Addon replied, but session synchronization is not confirmed." end
         return "Ready",entry.version.."; current session confirmed."
     end
     if A.Client:ServerTime()-r.at<3 then return "Waiting","Waiting for an addon reply…" end
     return "No reply","Unconfirmed: absent, delayed or unsupported addon; not proof it is missing."
 end
+function A:CheckedRecoveryBackup(name)
+    local s, check = self.state, self.addonCheck
+    local entry = check and check.members[name]
+    return s and entry and name~=s.leader and self:IsRecoveryBackup(s,name) and self:RecoveryOnline(name)==true
+        and self:AddonMemberStatus(name)=="Ready" and entry.recoveryRev==self.rev
+end
+
+function A:LootCheckRoles()
+    local s, settings = self.state, self:RaidSettings()
+    local gameMaster, gameStatus = self:ReadGameMaster()
+    local addonMaster = s and s.master or gameMaster or (self.roster[settings.master] and settings.master) or self.gameLeader
+    if (s and s.masterBlocked) or (not s and (gameStatus=="pending" or gameStatus=="restricted")) then addonMaster=nil end
+    local masterText = gameMaster or (gameStatus=="none" and "None" or "Unconfirmed")
+    if gameMaster and self:MemberOffline(gameMaster) then masterText=masterText.." (offline)" end
+    if addonMaster and addonMaster~=gameMaster then
+        masterText=masterText.."  |  Addon Master Looter: "..addonMaster..(self:MemberOffline(addonMaster) and " (offline)" or "")
+    end
+    local council, present, total = self.Copy(settings.council), 0, 0
+    if addonMaster then council[addonMaster]=true end
+    for name in pairs(council) do
+        total=total+1
+        if self:RecoveryOnline(name)==true then present=present+1 end
+    end
+    local assistant=settings.recoveryAssistant
+    local assistantText=assistant or "None selected"
+    if assistant then
+        local online=self:RecoveryOnline(assistant)
+        local status=not self.roster[assistant] and "absent" or not self:IsRaidAssistant(assistant) and "rank unconfirmed"
+            or online==true and "online, promoted" or online==false and "offline" or "connection unconfirmed"
+        assistantText=assistantText.." ("..status..")"
+    end
+    return masterText,council,present,total,assistant,assistantText
+end
+
+function A:LootCheckRecoveryStatus()
+    local s=self.state
+    if not s then return "Available after session start" end
+    if self.recoveryPending then return "Recovery in progress" end
+    local names={}
+    for _,name in pairs({s.recoveryBackup,s.recoveryAssistant}) do
+        if self:CheckedRecoveryBackup(name) and names[1]~=name then names[#names+1]=name end
+    end
+    table.sort(names)
+    if #names>0 then return "Verified on "..table.concat(names,", ") end
+    if not s.recoveryBackup and not s.recoveryAssistant then return "No backup assigned" end
+    return "Unconfirmed for the current session revision"
+end
+
 function A:AddonIssues()
     local issues={}
     for name in pairs(self.roster) do
@@ -69,6 +207,7 @@ function A:BeginAddonCheck()
     for name in pairs(self.roster) do r.members[name]={} end
     if r.members[self.me] then r.members[self.me]={version=self.version,wire=self.protocol,session=self:ProbeScope()} end
     self.addonCheck=r;self.addonSummaryDirty=true
+    if self.SendRecoveryBallots then self:SendRecoveryBallots() end
     self:Send({kind="presenceProbe",check=r.id,scope=r.scope})
     self:SendAddonSummary()
     return true
@@ -104,7 +243,9 @@ function A:WarningPacket(sender,p)
         if sender~=self.leader or sender==self.me or type(p.check)~="string" or #p.check>80 or (p.scope~=false and (type(p.scope)~="string" or #p.scope>120)) then return true end
         if A.Client:Uptime()-(self.lastPresenceReply or -10)<3 then return true end
         self.lastPresenceReply=A.Client:Uptime()
-        self:Send({kind="presenceReply",check=p.check,scope=p.scope,version=self.version,wire=self.protocol,session=self:ProbeScope()},sender)
+        local recoveryRev
+        if p.scope==self:ProbeScope() and self.HasRecoveryBallots and self:HasRecoveryBallots() then recoveryRev=self.rev end
+        self:Send({kind="presenceReply",check=p.check,scope=p.scope,version=self.version,wire=self.protocol,session=self:ProbeScope(),recoveryRev=recoveryRev},sender)
         return true
     elseif p.kind=="presenceReply" then
         local r=self.addonCheck
@@ -112,7 +253,8 @@ function A:WarningPacket(sender,p)
             or A.Client:ServerTime()-r.at<0 or A.Client:ServerTime()-r.at>30 then return true end
         if type(p.version)~="string" or #p.version>40 or not p.version:match("^[%w%.%-]+$") or not integer(p.wire,1,10000)
             or (p.session~=false and (type(p.session)~="string" or #p.session>120)) then return true end
-        r.members[sender]={version=p.version,wire=p.wire,session=p.session}
+        local recoveryRev=integer(p.recoveryRev,0,1000000000) and p.recoveryRev or nil
+        r.members[sender]={version=p.version,wire=p.wire,session=p.session,recoveryRev=recoveryRev}
         self.addonSummaryDirty=true
         self:RenderAddonCheck()
         return true
@@ -128,7 +270,8 @@ function A:WarningPacket(sender,p)
             if entry.version then
                 if type(entry.version)~="string" or #entry.version>40 or not entry.version:match("^[%w%.%-]+$") or not integer(entry.wire,1,10000)
                     or (entry.session~=false and (type(entry.session)~="string" or #entry.session>120)) then return true end
-                members[name]={version=entry.version,wire=entry.wire,session=entry.session}
+                local recoveryRev=integer(entry.recoveryRev,0,1000000000) and entry.recoveryRev or nil
+                members[name]={version=entry.version,wire=entry.wire,session=entry.session,recoveryRev=recoveryRev}
             end
         end
         if self.addonCheck and self.addonCheck.scope==r.scope and ((self.addonCheck.seq or 0)>=r.seq or self.addonCheck.at>r.at) then return true end
@@ -257,9 +400,6 @@ function A:TickTradeWarnings()
 end
 function A:TickWarnings()
     if self:IsLeader() and self.addonSummaryDirty and A.Client:Uptime()-(self.lastAddonSummary or -10)>=1 then self:SendAddonSummary() end
-    if self.ui then
-        if not self:IsLootController() then self.ui.checkWindow:Hide() end
-        self:RenderAddonCheck()
-    end
+    if self.ui and not self:IsLootController() then self.ui.checkWindow:Hide() end
     self:TickTradeWarnings()
 end

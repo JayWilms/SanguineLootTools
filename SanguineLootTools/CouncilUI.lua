@@ -155,6 +155,18 @@ function A:BuildCouncilUI(u, window, text, button)
     move(u.status, f, 80, 40, 610)
     move(u.itemIcon, f, 78, 69, 40, 40)
     move(u.itemTitle, f, 127, 70, 570); move(u.itemDetails, f, 127, 92, 570)
+    u.votingItemHover=CreateFrame("Button",nil,f)
+    u.votingItemHover:SetAllPoints(u.itemIcon)
+    u.votingItemHover:SetScript("OnEnter",function(button)
+        local item=A.state and A:ItemByID(A.selectedItem or 1)
+        if not item then return end
+        A:SetHoveredItem(button,item.link)
+        A:AddItemFacts(GameTooltip,item)
+        GameTooltip:Show()
+    end)
+    u.votingItemHover:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    u.votingItemHover:SetScript("OnHide",function() GameTooltip:Hide() end)
+    u.votingItemHover:Hide()
     move(u.itemStatus, f, 350, 112, 420, 16); u.itemStatus:SetJustifyV("TOP");u.itemStatus:SetMaxLines(1)
     u.councilResponseBar = CreateFrame("StatusBar", nil, f)
     u.councilResponseBar:SetPoint("TOPLEFT", 127, -112); u.councilResponseBar:SetSize(210, 12)
@@ -281,27 +293,29 @@ function A:ParentVotingContent()
         if region~=frame.headerBand then region:SetParent(surface) end
     end
 end
-function A:LayoutVotingColumns(surface)
+function A:LayoutVotingColumns(surface,compactMode)
     local u=self.ui
     local width=surface-80
     local mix=math.max(0,math.min(1,(width-440)/260))
     local normal={110,64,48,130,56,42,68,58,80}
     local compact={70,36,30,84,40,28,48,22,54}
     local columns,x={},0
+    local slim={0.30,0,0,0.27,0,0.10,0.12,0.08,0.13}
     for i=1,9 do
-        local size=math.floor(compact[i]+(normal[i]-compact[i])*mix)
+        local size=compactMode and math.floor((width-16)*slim[i]) or math.floor(compact[i]+(normal[i]-compact[i])*mix)
         columns[i]={x=x,width=size}
         local label=u.councilHeadings[i]
         label:ClearAllPoints();label:SetPoint("TOPLEFT",80+x,-129);label:SetWidth(size)
-        label:SetHeight(16);label:SetMaxLines(1)
+        label:SetHeight(16);label:SetMaxLines(1);label:SetShown(size>0)
         if i==8 then label:SetText(size<30 and "Note" or "Notes") end
-        x=x+size+2
+        if size>0 then x=x+size+2 end
     end
     u.councilHeadingBackground:SetWidth(width)
     for _,row in ipairs(u.candidates) do
         row:SetWidth(width)
         for i,cell in ipairs(row.cells) do
             cell:ClearAllPoints();cell:SetPoint("TOPLEFT",4+columns[i].x,-5);cell:SetWidth(columns[i].width)
+            cell:SetShown(i~=8 and columns[i].width>0)
         end
         for i,gear in ipairs(row.gear) do
             local offset=i==1 and 0 or columns[5].width-20
@@ -312,6 +326,7 @@ function A:LayoutVotingColumns(surface)
         row.award:ClearAllPoints();row.award:SetPoint("TOPLEFT",4+columns[9].x,-1);row.award:SetWidth(columns[9].width-2)
     end
     u.compactVoting=mix<0.5
+    u.votingCompactLayout=compactMode
 end
 
 function A:RenderCouncilTable(item, candidates, draft)
@@ -340,7 +355,7 @@ function A:RenderCouncilTable(item, candidates, draft)
             end
             row.rankText,row.roleText=rank,role
             if u.compactVoting then role=role=="DAMAGER" and "DPS" or role=="HEALER" and "Heal" or role=="TANK" and "Tank" or role end
-            local comparison = self:ComparisonRows(item,c.name)
+            local comparison = not u.votingCompactLayout and self:ComparisonRows(item,c.name) or {}
             for j, gear in ipairs(row.gear) do
                 gear.link = comparison[j] and comparison[j].link
                 gear.icon:SetTexture(gear.link and self:ItemIcon({link=gear.link}) or "Interface/Icons/INV_Misc_QuestionMark")
@@ -450,6 +465,11 @@ end
 function A:RenderSelectedLootTooltip(item,force)
     local u=self.ui
     if not u or not u.selectedLootPane then return end
+    if u.votingCompactLayout then
+        u.selectedLootKey=nil
+        if u.selectedLootTooltip then u.selectedLootTooltip:Hide() end
+        return
+    end
     local link=item and item.link
     local key=link and ((self.state and self.state.id or "")..":"..link)
     if not force and key and u.selectedLootKey==key then return end

@@ -1,3 +1,5 @@
+import csv
+from io import StringIO
 from pathlib import Path
 from lupa import LuaRuntime
 root=Path(__file__).resolve().parent.parent
@@ -234,3 +236,48 @@ A:CancelHistoryDeletion();A:RenderHistoryDeletion(records,'toggle')
 assert(not A.historyDeleteMode and not A.ui.historySelectAll.shown)
 ''')
 print('Select/deselect labels follow bulk and manual row selection; clearing preserves delete mode and records.')
+
+
+# CSV exports the whole filter and preserves spreadsheet cell boundaries.
+export = LuaRuntime(unpack_returned_tuples=True)
+export.execute('A={}; date=os.date')
+export.execute((root/'SanguineLootTools/History.lua').read_text(), 'SanguineLootTools', export.globals().A)
+export.execute('''
+SanguineLootCouncilDB={history={
+    {key='raid:1',item='|Hitem:123:0|h[Blade, "of Storms"]|h',time=1793923200,
+        winner='Moon-Realm',responseLabel='=SUM(1,2)',master='Lead-Realm',votes=0,delivery={status='delivered'}},
+    {key='raid:2',item='|Hitem:456:0|h[Other Blade]|h',winner='Other-Realm',responseLabel='BIS',quantity=2},
+    {key='raid:3',item='|Hitem:789:0|h[Guild Blade]|h',winner='Banker-Realm',responseLabel='Guild Bank'},
+}}
+local function widget()
+    return {SetText=function(s,v) s.text=v end,SetHeight=function() end,Show=function(s) s.shown=true end,
+        SetFocus=function(s) s.focused=true end,HighlightText=function(s) s.selected=true end,SetVerticalScroll=function() end}
+end
+A.ui={historyExportBox=widget(),historyExportSummary=widget(),historyExportWindow=widget(),historyExportScroll=widget()}
+A.FocusWindow=function() end
+A.historyFilter='Moon-Realm';A.historySearch='blade'
+assert(A:ShowHistoryExport())
+assert(A.ui.historyExportWindow.shown and A.ui.historyExportBox.selected)
+assert(A.ui.historyExportSummary.text=='Moon-Realm | 1 matching record')
+filtered=A.ui.historyExportBox.text
+A.historyDeleteMode=true
+assert(not A:ShowHistoryExport())
+A.historyDeleteMode=nil;A.historyFilter=nil;A.historyGuildBank=true
+assert(A:ShowHistoryExport())
+bank=A.ui.historyExportBox.text
+A.historySearch='no results'
+assert(not A:ShowHistoryExport())
+
+local large={}
+for i=1,500 do large[i]={key='raid:'..i,item='|Hitem:456:0|h[Other Blade]|h',winner='Other-Realm'} end
+full=A:HistoryCSV(large)
+assert(#SanguineLootCouncilDB.history==3)
+''')
+csv_rows = list(csv.reader(StringIO(export.globals().filtered)))
+assert len(csv_rows) == 2 and len(csv_rows[1]) == 10
+assert csv_rows[1] == ['2026-11-06T00:00:00Z', 'Moon-Realm', 'Blade, "of Storms"', '123', '1',
+                       "'=SUM(1,2)", '0', 'Lead-Realm', 'delivered', 'raid:1']
+bank_rows = list(csv.reader(StringIO(export.globals().bank)))
+assert [row[-1] for row in bank_rows] == ['Award ID', 'raid:3']
+assert len(list(csv.reader(StringIO(export.globals().full)))) == 501
+print('History CSV filter scope, escaping, formula-like responses and 500-record export pass.')

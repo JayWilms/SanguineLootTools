@@ -6,6 +6,17 @@ function A:IsCompletedUtilityAssignment(entry)
         and entry.delivery=="delivered" and item.winner~=nil and entry.deliveredTo==item.winner
 end
 
+function A:OpenLootSuggestionMenu(row,operation,label)
+    local s=self.state
+    local entry=s and self:TrackedByID(row.tracked)
+    if not entry then return end
+    local tracked,guid,sid=entry.id,entry.guid,s.id
+    GameTooltip:Hide()
+    self:OpenSettingsDropdown(row,{{label,operation}},function(op)
+        if A.state and A.state.id==sid then A:Act(op,{tracked=tracked,guid=guid}) end
+    end,200)
+end
+
 function A:LootHolderInfo(holder)
     if type(holder)~="string" or holder=="" then return "Unknown", "Holder not confirmed" end
     local unit=self.roster[holder]
@@ -46,7 +57,16 @@ function A:BuildLootUI(u, window, text, button, edit)
     panel.holderHeader=text(w, "Holder", 11, 398, -70, 105); panel.winnerHeader=text(w, "Winner", 11, 528, -70, 108)
     panel.rows = {}
     for i=1,12 do
-        local row = button(w, "", 18, -88-(i-1)*44, 724, function(self) A.selectedTracked=self.tracked; A:RenderLootWindows() end)
+        local row = button(w, "", 18, -88-(i-1)*44, 724, function(self,mouse)
+            if mouse=="RightButton" then
+                if A:IsMaster() and A:LootSuggestion(A:TrackedByID(self.tracked)) then
+                    A:OpenLootSuggestionMenu(self,"dismissLootSuggestion","Dismiss Suggestion")
+                end
+                return
+            end
+            A.selectedTracked=self.tracked;A:RenderLootWindows()
+        end)
+        row:RegisterForClicks("LeftButtonUp","RightButtonUp")
         row:SetHeight(42); row:SetNormalTexture(""); row:SetPushedTexture("")
         self:StyleDataRow(row,i)
         row.icon=row:CreateTexture(nil,"ARTWORK"); row.icon:SetPoint("TOPLEFT",4,-4); row.icon:SetSize(34,34)
@@ -76,6 +96,14 @@ function A:BuildLootUI(u, window, text, button, edit)
             local entry=A.state and A:TrackedByID(self.tracked or 0)
             if entry then
                 A:SetHoveredItem(self, entry.link)
+                local suggestion=A:LootSuggestion(entry)
+                if suggestion and A:IsMaster() then
+                    local names={}
+                    for name in pairs(suggestion.members) do names[#names+1]=name end
+                    table.sort(names)
+                    GameTooltip:AddLine("Suggested by "..table.concat(names,", "),1,0.8,0.4,true)
+                    GameTooltip:AddLine("Right-click to dismiss this suggestion.",1,1,1)
+                end
                 local _,status=A:LootHolderInfo(entry.holder)
                 GameTooltip:AddLine("Holder: "..(entry.holder or "Unknown"),1,1,1)
                 if status then GameTooltip:AddLine(status,1,0.7,0.3) end
@@ -205,7 +233,8 @@ function A:RenderLootWindows()
             if level=="urgent" then row.caption:SetTextColor(1,0.3,0.2)
             elseif level=="early" then row.caption:SetTextColor(1,0.7,0.2)
             else row.caption:SetTextColor(1,1,1) end
-            row.detail:SetText(entry.nativeReceipt and ("Master Loot record • Quantity "..(entry.quantity or 1)) or entry.manual and "Manual item - holder and timer unverified" or self.demo and (not entry.item and "Simulated loot - queue to open responses" or "Simulated loot - Manage tests delivery") or (self.selectedTracked==entry.id and "Selected" or ""))
+            local suggestion=self:IsMaster() and self:LootSuggestion(entry)
+            row.detail:SetText(suggestion and ("Suggested by "..suggestion.first) or entry.nativeReceipt and ("Master Loot record • Quantity "..(entry.quantity or 1)) or entry.manual and "Manual item - holder and timer unverified" or self.demo and (not entry.item and "Simulated loot - queue to open responses" or "Simulated loot - Manage tests delivery") or (self.selectedTracked==entry.id and "Selected" or ""))
             local holder,status,color=self:LootHolderInfo(entry.holder)
             row.holder:SetText(self:FitTimerItemName(holder,row.holderMeasure,row.holder:GetWidth()))
             row.holder:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)
@@ -315,8 +344,29 @@ function A:BuildLootTimerUI(u,window,text,button)
     -- Active tracking is bounded at 80 copies. Keep each physical copy in the
     -- scroll child so mouse wheel and scrollbar expose the complete list.
     for i=1,80 do
-        local row=CreateFrame("Frame",nil,p.child)
+        local row=CreateFrame("Button",nil,p.child)
         row:SetPoint("TOPLEFT",0,-(i-1)*44);row:SetSize(546,42);row:EnableMouse(false)
+        row:RegisterForClicks("RightButtonUp")
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel",function(_,delta) p.scroll:GetScript("OnMouseWheel")(p.scroll,delta) end)
+        row:SetScript("OnClick",function(self)
+            local entry=A:TrackedByID(self.tracked)
+            if A:CanSuggestLoot(entry,A.me) then
+                local suggestion=A:LootSuggestion(entry)
+                if not suggestion or not suggestion.members[A.me] then
+                    A:OpenLootSuggestionMenu(self,"suggestLoot","Suggest for Council")
+                end
+            end
+        end)
+        row:SetScript("OnEnter",function(self)
+            local entry=A:TrackedByID(self.tracked)
+            if not A:CanSuggestLoot(entry,A.me) then return end
+            A:SetHoveredItem(self,entry.link)
+            local suggestion=A:LootSuggestion(entry)
+            GameTooltip:AddLine(suggestion and suggestion.members[A.me] and "You suggested this item." or "Right-click to suggest for council.",1,0.8,0.4)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave",function() GameTooltip:Hide() end)
         self:StyleDataRow(row,i)
         row.icon=row:CreateTexture(nil,"ARTWORK");row.icon:SetPoint("TOPLEFT",4,-4);row.icon:SetSize(34,34)
         row.caption=text(row,"",11,46,-13,170);row.caption:SetHeight(16);row.caption:SetMaxLines(1);row.caption:SetWordWrap(false)
@@ -336,32 +386,39 @@ function A:LayoutLootTimer()
     local p=self.ui.lootTimers
     local w,h=p.window:GetWidth(),p.window:GetHeight()
     local width=w-54
-    p.scroll:SetSize(width,math.max(44,h-88));p.child:SetWidth(width)
-    local itemWidth=math.max(90,w-448)
-    local timeX=itemWidth+62
+    local compact=self:LootWindowLayout("timer")=="Compact"
+    local oldStride,offset=p.rowStride or 44,p.scroll:GetVerticalScroll()
+    p.compact,p.rowStride=compact,compact and 32 or 44
+    p.scroll:SetSize(width,math.max(p.rowStride,h-88));p.child:SetWidth(width)
     local timeWidth=math.min(145,math.max(100,w*.23))
+    local itemWidth=compact and math.max(60,width-timeWidth-50) or math.max(90,w-448)
+    local timeX=itemWidth+(compact and 44 or 62)
     local holderX=timeX+timeWidth+16
     local holderWidth=math.max(40,width-holderX-8)
     p.itemHeader:SetWidth(itemWidth+30)
     p.timeHeader:ClearAllPoints();p.timeHeader:SetPoint("TOPLEFT",p.window,"TOPLEFT",18+timeX,-50);p.timeHeader:SetWidth(timeWidth)
+    p.holderHeader:SetShown(not compact)
     p.holderHeader:ClearAllPoints();p.holderHeader:SetPoint("TOPLEFT",p.window,"TOPLEFT",18+holderX,-50);p.holderHeader:SetWidth(holderWidth)
     for _,header in ipairs({p.itemHeader,p.timeHeader,p.holderHeader}) do header:SetTextColor(.80,.74,.57) end
-    p.empty:SetWidth(w-48)
-    for _,row in ipairs(p.rows) do
-        row:SetWidth(width);row.caption:SetWidth(itemWidth)
-        row.bar:ClearAllPoints();row.bar:SetPoint("TOPLEFT",timeX,-12);row.bar:SetWidth(timeWidth);row.countdown:SetWidth(timeWidth-4)
+    p.empty:ClearAllPoints();p.empty:SetPoint("TOPLEFT",24,-math.floor((h+20)/2));p.empty:SetWidth(w-48)
+    for i,row in ipairs(p.rows) do
+        row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-(i-1)*p.rowStride);row:SetSize(width,p.rowStride-2)
+        row.icon:SetSize(compact and 22 or 34,compact and 22 or 34)
+        row.caption:ClearAllPoints();row.caption:SetPoint("TOPLEFT",compact and 34 or 46,compact and -7 or -13);row.caption:SetWidth(itemWidth)
+        row.bar:ClearAllPoints();row.bar:SetPoint("TOPLEFT",timeX,compact and -6 or -12);row.bar:SetWidth(timeWidth);row.countdown:SetWidth(timeWidth-4)
+        row.holder:SetShown(not compact);row.holderStatus:SetShown(not compact)
         row.holder:ClearAllPoints();row.holder:SetPoint("TOPLEFT",holderX,-7);row.holder:SetWidth(holderWidth)
         row.holderStatus:ClearAllPoints();row.holderStatus:SetPoint("TOPLEFT",holderX,-25);row.holderStatus:SetWidth(holderWidth)
     end
-    self:ClampLootTimerScroll()
+    self:ClampLootTimerScroll(false,offset*p.rowStride/oldStride)
 end
 
-function A:ClampLootTimerScroll(reset)
+function A:ClampLootTimerScroll(reset,offset)
     local p=self.ui.lootTimers
-    local height=math.max(1,(p.count or 0)*44-2)
+    local height=math.max(1,(p.count or 0)*p.rowStride-2)
     p.child:SetHeight(height)
     local maximum=math.max(0,height-p.scroll:GetHeight())
-    p.scroll:SetVerticalScroll(reset and 0 or math.min(p.scroll:GetVerticalScroll(),maximum))
+    p.scroll:SetVerticalScroll(reset and 0 or math.min(offset or p.scroll:GetVerticalScroll(),maximum))
     self:RefreshScrollChrome(p.scroll,maximum)
 end
 
@@ -388,6 +445,7 @@ function A:RenderLootTimers()
     local cfg=self:WarningSettings()
     for i,row in ipairs(p.rows) do
         local entry=rows[i];row:SetShown(entry~=nil);row.tracked=entry and entry.id
+        row:EnableMouse(self.CanSuggestLoot and self:CanSuggestLoot(entry,self.me) and true or false)
         if entry then
             row.icon:SetTexture(self:ItemIcon(entry))
             local key=entry.link..":"..row.caption:GetWidth()
@@ -402,9 +460,11 @@ function A:RenderLootTimers()
             elseif remaining<=cfg.early then row.bar:SetStatusBarColor(0.95,0.6,0.1)
             else row.bar:SetStatusBarColor(0.2,0.65,0.3) end
             row.countdown:SetText(label)
-            local holder,status,color=self:LootHolderInfo(entry.holder)
-            row.holder:SetText(holder);row.holder:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)
-            row.holderStatus:SetText(self.demo and entry.demo and "Simulated loot / timer" or (status or ""));row.holderStatus:SetTextColor(1,0.7,0.3)
+            if not p.compact then
+                local holder,status,color=self:LootHolderInfo(entry.holder)
+                row.holder:SetText(holder);row.holder:SetTextColor(color and color.r or 1,color and color.g or 1,color and color.b or 1)
+                row.holderStatus:SetText(self.demo and entry.demo and "Simulated loot / timer" or (status or ""));row.holderStatus:SetTextColor(1,0.7,0.3)
+            end
         end
     end
 end

@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.68 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.69 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,18 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.68, protocol 18. Commands use /slt.
+Everyone testing together should use alpha.69, protocol 19. Commands use /slt.
 Start a new normal raid session when testing the upgrade.
+
+NEW SINCE ALPHA.68
+- Takeover priority is Raid Leader, Master Looter, then the named Raid Assistant.
+- Settings > Session and /slt check open the Pre-Raid Loot Check.
+- Settings > Display offers Compact Responses, Voting and Timer.
+- History > Export CSV copies the currently filtered rewards.
+- Council can right-click a tracked Timer item to suggest it. The Master
+  Looter gets one notice per item copy and can queue or dismiss it from Loot.
+- Settings > Announcements controls Raid chat notices for tracked loot,
+  response openings, and awards or award corrections.
 
 NEW SINCE ALPHA.67
 - Recover a confirmed session after the Raid Leader reloads or changes.

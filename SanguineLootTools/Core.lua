@@ -2,8 +2,8 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.68"
-A.protocol = 18
+A.version = "0.12.0-alpha.69"
+A.protocol = 19
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
 A.roster = {}
@@ -58,17 +58,20 @@ function A:RefreshRoster()
             end
         end
     end
+    self.gameLeader = self.leader or false
     local state=self.state
     local liveRaid=state and not self.demo and not state.groupTest and self.Client:InRaid()
-    if liveRaid and state.leader~=self.leader and not self.recoveryPending then
-        self.recoveryPending=true
-        if self.ResetTestTransport then self:ResetTestTransport() end
-        self:Print("Raid leadership changed. Loot actions are paused while Sanguine checks for a recovery copy.")
-    end
+    if liveRaid and self.RefreshRecoveryAuthority then self:RefreshRecoveryAuthority() end
     if state and not liveRaid and (state.leader ~= self.leader or (not state.groupTest and not self.Client:InRaid())) then
         self.state, self.rev, self.demo, self.groupTest = nil, 0, nil, nil
         if self.ResetTestTransport then self:ResetTestTransport() end
         self:Print("Leadership changed or you left the raid. The old session has stopped; the leader can start a new one.")
+    end
+    if not self.state and self.locatedRecovery then
+        local located=self.locatedRecovery
+        if self.roster[located.sender] and self.Client:InRaid() and self.Client:Uptime()<located.untilAt then
+            self.leader=located.sender
+        else self.locatedRecovery=nil end
     end
     if self.CheckRecoveryRoster then self:CheckRecoveryRoster() end
     if not self.recoveryPending and self.OnVotingRosterChanged then self:OnVotingRosterChanged() end
@@ -90,6 +93,10 @@ function A:Resolve(name)
     return found
 end
 
+function A:IsGameLeader()
+    if self.gameLeader==nil then return self:IsLeader() end
+    return self.me and self.me==self.gameLeader
+end
 function A:IsLeader() return self.me and self.me == self.leader end
 function A:IsSoloTest() return self.demo and not self.groupTest end
 function A:TestLabel() return self.groupTest and "GROUP TEST" or "SOLO TEST" end
@@ -110,6 +117,7 @@ function A:DisplayName(name)
 end
 
 function A:Changed()
+    if self.NotifyLootSuggestions then self:NotifyLootSuggestions() end
     if self.PreloadSessionItems then self:PreloadSessionItems() end
     if self.corpseOpen or (self.state and next(self.state.corpseRoutes or {})) then self.corpseScanSoon=true end
     if self.PrimeLootBagSnapshot then self:PrimeLootBagSnapshot() end
@@ -128,7 +136,7 @@ function A:Reduce(sender, p)
     if not self.Client:ClockReady() then return false,"Client clocks unavailable. Session changes are disabled; use /slt diagnostics." end
     if not self.roster[sender] or type(p) ~= "table" then return false, "Not a raid member." end
     if p.op == "start" then
-        if sender ~= self.leader or self.state then return false, "Only the raid leader can start an idle session." end
+        if sender ~= self.leader or not self:IsGameLeader() or self.state then return false, "Only the raid leader can start an idle session." end
         if p.groupTest~=nil and p.groupTest~=true then return false,"Invalid test mode." end
         if self.Client:InGroup() and not self.Client:InRaid() and p.groupTest~=true then return false,"Party sessions are available through /slt test only." end
         if p.groupTest and not self.Client:InGroup() then return false,"Shared tests require a party or raid." end
@@ -136,8 +144,8 @@ function A:Reduce(sender, p)
         local setup=self:SessionRaidSettings()
         self.rev = 0
         self.state = {id = tostring(A.Client:ServerTime()) .. ":" .. tostring(math.random(100000, 999999)),
-            leader = sender, master = setup.master, masterFallback = setup.masterFallback, council = self.Copy(setup.council), responseOptions=self.Copy(setup.responseOptions),responseNextID=6,responseConfigRevision=0, items = {}, selfVotes = setup.selfVotes, rules = self.Copy(setup.rules), responseDuration = setup.responseDuration,
-            trackedLoot = {}, lootSequences = {}, autoCollect = setup.lootConfiguration.collection, lootConfiguration=self.Copy(setup.lootConfiguration),lootConfigRevision=0, warningSettings=self.Copy(setup.warningSettings)}
+            leader = sender, recoveryAssistant = setup.recoveryAssistant, master = setup.master, masterFallback = setup.masterFallback, council = self.Copy(setup.council), responseOptions=self.Copy(setup.responseOptions),responseNextID=6,responseConfigRevision=0, items = {}, selfVotes = setup.selfVotes, rules = self.Copy(setup.rules), responseDuration = setup.responseDuration,
+            trackedLoot = {}, lootSequences = {}, autoCollect = setup.lootConfiguration.collection, lootConfiguration=self.Copy(setup.lootConfiguration),lootConfigRevision=0, warningSettings=self.Copy(setup.warningSettings),announcementSettings=self.Copy(setup.announcementSettings)}
         for _,option in ipairs(self.state.responseOptions) do self.state.responseNextID=math.max(self.state.responseNextID,option.id) end
         if p.groupTest then
             self.testSerial=(self.testSerial or 0)+1
@@ -150,6 +158,14 @@ function A:Reduce(sender, p)
     end
     local s = self.state
     if not s or p.sid ~= s.id then return false, "No matching active session." end
+    if p.op=="recoveryAssistant" then
+        if sender~=self.leader or s.groupTest then return false, "Only the session host can name a recovery assistant." end
+        if p.target~=false and (p.target==sender or not self:IsRaidAssistant(p.target)) then
+            return false, "Choose a promoted Raid Assistant from the current raid."
+        end
+        s.recoveryAssistant=p.target or nil
+        return true
+    end
     if p.op=="corpseNativeReceipt" then return self:ReduceNativeReceipt(sender,p) end
     if p.op=="lootConfiguration" or p.op=="routeLoot" or p.op=="corpsePrepare" or p.op=="corpseReady" or p.op=="corpseStarted" or p.op=="corpseCleared" or p.op=="corpseFailed" or p.op=="corpseReceipt" then
         return self:ReduceLootConfiguration(sender,p)
@@ -158,6 +174,7 @@ function A:Reduce(sender, p)
         return false,"Shared tests use simulated loot only. Real collection and trade reporting are disabled."
     end
     if p.op=="archiveCompleted" then return self:ReduceArchive(sender,p) end
+    if p.op=="suggestLoot" or p.op=="dismissLootSuggestion" then return self:ReduceLootSuggestion(sender,p) end
     if p.op == "tradeReceipt" or p.op == "tradeActivity" or p.op == "lootReport" or p.op == "autoCollect" or p.op == "queueLoot" or p.op == "manualLoot" or p.op == "bagLoot" or p.op == "lootHolder" or p.op == "confirmDelivery" or p.op == "reopenDelivery" then
         return self:ReduceLoot(sender, p)
     end
@@ -172,6 +189,12 @@ function A:Reduce(sender, p)
         s.responseOptions=options;s.responseConfigRevision=(s.responseConfigRevision or 0)+1
         for _,v in ipairs(options) do s.responseNextID=math.max(s.responseNextID or 6,v.id) end
         if not self.demo then SanguineLootCouncilDB.responseOptions=self.Copy(options) end
+        return true
+    elseif p.op=="announcementSetting" then
+        if sender~=self.leader then return false,"Only the raid leader changes raid announcements." end
+        local settings=self:EditAnnouncementSetting(p)
+        if not settings then return false,"Invalid announcement setting." end
+        s.announcementSettings=settings
         return true
     elseif p.op=="warningSettings" then
         if sender~=self.leader then return false,"Only the raid leader changes warning settings." end

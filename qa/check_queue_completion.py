@@ -91,3 +91,43 @@ print('Mixed stale batches reject before creating partial rounds.')
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)
 print('Queue completion and response-list checks passed. No installer generated.')
+
+
+lua=setup()
+lua.execute('''
+local first,second='Council-One','Council-Two'
+local master=A.state.master
+A.roster[first],A.roster[second]='raid3','raid4'
+A.state.council[first],A.state.council[second]=true,true
+local one={id=2,guid='Item-First-Copy',link=link,holder=master}
+local two={id=3,guid='Item-Second-Copy',link=link,holder=master}
+A.state.trackedLoot={entry,one,two}
+function A.Client:ClockReady() return true end
+local function act(sender,op,copy,guid)
+    return A:Reduce(sender,{op=op,sid=A.state.id,tracked=copy.id,guid=guid or copy.guid})
+end
+assert(not act('Winner-Realm','suggestLoot',one))
+assert(not act(first,'suggestLoot',one,two.guid))
+assert(not act(first,'suggestLoot',entry))
+assert(act(first,'suggestLoot',one))
+local notices={}
+function A:Print(message) notices[#notices+1]=message end
+A.me=first
+A:NotifyLootSuggestions();assert(#notices==0)
+A.me=master
+A:NotifyLootSuggestions();assert(#notices==1 and notices[1]:find(first,1,true))
+assert(act(second,'suggestLoot',one))
+local ok,_,unchanged=act(second,'suggestLoot',one)
+assert(ok and unchanged and A:LootSuggestion(one).members[first] and A:LootSuggestion(one).members[second])
+A:NotifyLootSuggestions();assert(#notices==1)
+assert(not act(first,'dismissLootSuggestion',one))
+assert(act(master,'dismissLootSuggestion',one))
+assert(not A:LootSuggestion(one) and not act(second,'suggestLoot',one))
+assert(act(first,'suggestLoot',two))
+A:NotifyLootSuggestions();assert(#notices==2)
+assert(#A.state.items==1 and not two.item)
+assert(A:ReduceLoot(master,{op='queueLoot',tracked=two.id,release=true}))
+assert(not two.councilSuggestion and not A:LootSuggestion(two))
+assert(A:ItemByID(two.item).status=='open' and #A.state.items==2)
+''')
+print('Council loot suggestions respect authority, distinguish copies, notify once, and clear on dismissal or release.')

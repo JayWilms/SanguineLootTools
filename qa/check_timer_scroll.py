@@ -27,6 +27,8 @@ for name in ['UI','LootUI']:
     lua.execute((root/'SanguineLootTools'/f'{name}.lua').read_text(encoding='utf-8'),
                 'SanguineLootTools',lua.globals().A)
 lua.execute('''
+local timerMode="Full"
+function A:LootWindowLayout() return timerMode end
 function A:StyleRailArrow() end
 function A:StyleDataRow() end
 function A:WarningSettings() return {early=600,urgent=120} end
@@ -73,5 +75,16 @@ p.scroll:SetVerticalScroll(100)
 A:RenderLootTimers();assert(p.scroll:GetVerticalScroll()==0)
 p.window:SetSize(440,220);A:LayoutLootTimer()
 assert(p.rows[1].holder:GetWidth()>=40 and p.rows[1].caption:GetWidth()>=90)
+
+p.scroll:SetVerticalScroll(88)
+timerMode='Compact';p.window:SetSize(380,250);A:LayoutLootTimer()
+assert(not p.holderHeader:IsShown() and not p.rows[1].holder:IsShown() and not p.rows[1].holderStatus:IsShown())
+assert(p.rowStride==32 and p.rows[1]:GetHeight()==30 and p.scroll:GetVerticalScroll()==64)
+A:RenderLootTimers()
+assert(p.rows[1].caption:GetText()=='item:1' and p.rows[1].countdown:GetText()=='~0:16:40')
+assert(p.scroll:GetVerticalScroll()==64 and not p.rows[1].holder:IsShown())
+timerMode='Full';p.window:SetSize(600,320);A:LayoutLootTimer();A:RenderLootTimers()
+assert(p.holderHeader:IsShown() and p.rows[1].holder:IsShown() and p.rows[1].holder:GetText()=='Holder')
+assert(p.rowStride==44 and p.scroll:GetVerticalScroll()==88)
 ''')
 print('Timer scroll: 80 items, wheel/arrows/slider, refresh preservation, resize, delivery removal, empty and session reset passed.')

@@ -38,7 +38,7 @@ function A:SetupMemberName(value)
 end
 function A:CleanRaidSetup(value)
     local v=type(value)=="table" and value or {}
-    local result={council={},master=self:SetupMemberName(v.master),
+    local result={council={},master=self:SetupMemberName(v.master),recoveryAssistant=self:SetupMemberName(v.recoveryAssistant),
         selfVotes=v.selfVotes~=false,rules=self:ValidVoting(v.rules) and self.Copy(v.rules) or self:DefaultVoting()}
     local count=0
     if type(v.council)=="table" then
@@ -57,11 +57,12 @@ function A:RaidSettings()
     c.master=c.master or self.me
     c.responseOptions=self.Copy(d.responseOptions);c.responseDuration=d.responseDuration
     c.warningSettings=self.Copy(d.warningSettings)
+    c.announcementSettings=self:AnnouncementSettings()
     c.lootConfiguration=self.Copy(d.lootConfiguration)
     return c
 end
 A.raidSetupOperations={responseDuration=true,responseOptions=true,master=true,council=true,
-    selfVotes=true,rules=true,warningSettings=true,lootConfiguration=true}
+    selfVotes=true,rules=true,warningSettings=true,announcementSetting=true,lootConfiguration=true,recoveryAssistant=true}
 function A:RememberRaidSettings(settings,profile)
     if self.demo then return end
     local c=settings or self.state;if not c then return end
@@ -71,6 +72,7 @@ function A:RememberRaidSettings(settings,profile)
     d.responseOptions=self:CleanResponses(c.responseOptions) or self:DefaultResponses()
     d.responseDuration=c.responseDuration
     d.warningSettings=self:CleanWarningSettings(c.warningSettings) or self:DefaultWarningSettings()
+    if c.announcementSettings then d.announcementSettings=self.Copy(c.announcementSettings) end
     d.lootConfiguration=self:CleanLootConfiguration(c.lootConfiguration) or self:DefaultLootConfiguration()
     d.raidSetupRevision=(d.raidSetupRevision or 0)+1
 end
@@ -123,6 +125,15 @@ function A:ApplyIdleRaidSetting(op,p)
             local ok,message=self:ApplyCouncilMemberChange(c.council,target,p)
             if not ok then self:Print(message);return false end
         end
+    elseif op=="recoveryAssistant" then
+        if not self:IsGameLeader() then return false end
+        if p.target~=false and not self:IsRaidAssistant(p.target) then
+            self:Print("Choose a promoted Raid Assistant from the current raid.");return false
+        end
+        c.recoveryAssistant=p.target or nil
+    elseif op=="announcementSetting" then
+        c.announcementSettings=self:EditAnnouncementSetting(p)
+        if not c.announcementSettings then return false end
     elseif op=="warningSettings" then c.warningSettings=self:CleanWarningSettings(p.settings);if not c.warningSettings then return false end
     elseif op=="lootConfiguration" then c.lootConfiguration=self:CleanLootConfiguration(p.settings);if not c.lootConfiguration then return false end
     end
@@ -133,6 +144,7 @@ function A:SessionRaidSettings()
     for name in pairs(c.council) do
         if not self.roster[name] then c.council[name]=nil;missing[#missing+1]=name end
     end
+    if c.recoveryAssistant and not self:IsRaidAssistant(c.recoveryAssistant) then c.recoveryAssistant=nil end
     c.masterFallback=c.master
     if not self.roster[c.master] then c.master=self.me end
     if #missing>0 then table.sort(missing);self:Print("Skipped absent council: "..table.concat(missing,", ")) end
@@ -231,7 +243,7 @@ function A:RecoveryAvailable()
     self:InitStorage()
     if self.demo or not self:IsLeader() or self.state then return false end
     local saved = SanguineLootCouncilDB.checkpoints[self.me]
-    return saved and (saved.protocol == self.protocol or saved.protocol == 17 or saved.protocol == 3 or saved.protocol == 4 or saved.protocol == 5 or saved.protocol == 6 or saved.protocol == 7 or saved.protocol == 8 or saved.protocol == 9 or saved.protocol == 10 or saved.protocol == 11 or saved.protocol == 12 or saved.protocol == 13) and type(saved.state) == "table"
+    return saved and (saved.protocol == self.protocol or saved.protocol == 18 or saved.protocol == 17 or saved.protocol == 3 or saved.protocol == 4 or saved.protocol == 5 or saved.protocol == 6 or saved.protocol == 7 or saved.protocol == 8 or saved.protocol == 9 or saved.protocol == 10 or saved.protocol == 11 or saved.protocol == 12 or saved.protocol == 13) and type(saved.state) == "table"
         and not saved.state.groupTest and saved.state.leader == self.me and type(saved.savedAt) == "number"
         and A.Client:ServerTime() >= saved.savedAt and A.Client:ServerTime() - saved.savedAt <= 43200
 end
@@ -253,6 +265,8 @@ end
 function A:RestoreSession(saved, recovered)
     self.state, self.rev = copy(saved.state), saved.rev + 1
     local s = self.state
+    if recovered and self.gameLeader~=nil then s.delegatedHost=self.gameLeader~=self.me or nil end
+    if s.leader~=self.me then s.previousHost=s.leader end
     s.leader = self.me
     s.responseOptions=self:CleanResponses(s.responseOptions) or self:DefaultResponses()
     s.responseNextID=s.responseNextID or 6
@@ -361,6 +375,28 @@ function A:DisplayPreferences()
     end
     return prefs
 end
+function A:LootWindowLayout(kind)
+    local db=SanguineLootCouncilDB
+    local byCharacter=db and db.displayPreferences
+    local prefs=type(byCharacter)=="table" and byCharacter[self.me or "local"]
+    return type(prefs)=="table" and prefs[kind.."Layout"]=="Compact" and "Compact" or "Full"
+end
+
+function A:SetLootWindowLayout(kind, mode)
+    if (kind~="response" and kind~="voting" and kind~="timer") or (mode~="Full" and mode~="Compact") then return false end
+    self:DisplayPreferences()[kind.."Layout"]=mode
+    local u=self.ui
+    if u then
+        local frame=kind=="response" and u.popup or kind=="voting" and u.main or u.lootTimers.window
+        local saved=self:WindowLayoutStore()[frame.sltWindowName]
+        self:ResizeReadableWindow(frame,self:PreferredWindowSize(frame,saved))
+        self:ClampWindowPosition(frame)
+        self:SaveWindowLayout(frame,frame.sltWindowName)
+        self:Render()
+    end
+    return true
+end
+
 function A:LootWindowAutoOpen()
     return self:DisplayPreferences().lootAutoOpen
 end

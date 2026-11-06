@@ -248,8 +248,21 @@ local policies={
     SanguineLootCouncilHistory={980,560,840,440,1200,720,"middle"},
     SanguineLootCouncilReadiness={640,500,560,360,760,650,"middle"},
 }
+local compactPolicies={
+    SanguineLootCouncilResponses={620,315,560,315,620,395,"responses"},
+    SanguineLootCouncilMain={740,530,620,460,740,530,"voting"},
+    SanguineLootCouncilTimer={380,250,320,180,480,380,"timer",true},
+}
 function A:WindowPolicy(frame)
-    for _,entry in ipairs(self.windowFrames or {}) do if entry.frame==frame then return policies[entry.name] end end
+    for _,entry in ipairs(self.windowFrames or {}) do
+        if entry.frame==frame then
+            local kind=entry.name=="SanguineLootCouncilResponses" and "response"
+                or entry.name=="SanguineLootCouncilMain" and "voting"
+                or entry.name=="SanguineLootCouncilTimer" and "timer"
+            if kind and self.LootWindowLayout and self:LootWindowLayout(kind)=="Compact" then return compactPolicies[entry.name] end
+            return policies[entry.name]
+        end
+    end
 end
 function A:CanResizeWindow(frame)
     local p=self:WindowPolicy(frame)
@@ -276,6 +289,9 @@ function A:ResponseWindowHeight()
     local item=self.state and self:ItemByID(self.popupItem or 0)
     for _,v in ipairs(self:ResponseOptions(item)) do if v.enabled then count=count+1 end end
     local rows=math.ceil(count/3)
+    if self:LootWindowLayout("response")=="Compact" then
+        return 315+math.max(0,rows-2)*30+(self.responseNoteExpanded and 44 or 0)
+    end
     return math.max(380,math.min(475,312+rows*34+math.max(0,rows-2)*8))
 end
 function A:ResizeReadableWindow(frame,width,height)
@@ -378,7 +394,7 @@ local resetWindowLabels={
     SanguineLootCouncilResponses="Response Window",SanguineLootCouncilMain="Voting Window",
     SanguineLootCouncilTrade="Loot Window",SanguineLootCouncilTimer="Timer Window",
     SanguineLootCouncilSettings="Settings Window",SanguineLootCouncilHistory="History Window",
-    SanguineLootCouncilReadiness="Version Check Window",
+    SanguineLootCouncilReadiness="Pre-Raid Loot Check",
 }
 function A:WindowResetChoices()
     local choices={}
@@ -480,6 +496,7 @@ function A:LayoutReadableWindow(frame)
         place(u.historyMine,20,132,165,26)
         place(u.historyGuildBank,195,132,165,26)
         place(u.historySync,w-170,h-50,130,28)
+        place(u.historyExport,w-300,h-50,120,28)
         place(u.historyDelete,20,h-50,170,28)
         place(u.historySelectAll,200,h-50,145,28)
         place(u.historyDeleteCancel,355,h-50,85,28)
@@ -498,11 +515,11 @@ function A:LayoutReadableWindow(frame)
     elseif frame==u.checkWindow then
         frame.title:SetWidth(w-200)
         place(u.checkExpected,w-250,22,145)
-        u.checkDescription:SetWidth(w-50)
+        for _,line in ipairs(u.checkRoles) do line:SetWidth(w-50) end
         local playerWidth=w-350
-        place(u.checkplayerHeader,20,110,playerWidth)
-        place(u.checkaddonHeader,30+playerWidth,110,130)
-        place(u.checkversionHeader,170+playerWidth,110,140)
+        place(u.checkplayerHeader,20,139,playerWidth)
+        place(u.checkaddonHeader,30+playerWidth,139,130)
+        place(u.checkversionHeader,170+playerWidth,139,140)
         u.checkChild:SetWidth(w-55)
         for _,row in ipairs(u.checkRows) do
             row:SetWidth(w-55);row.player:SetWidth(playerWidth)
@@ -520,9 +537,27 @@ function A:LayoutReadableWindow(frame)
         u.popupStatus:SetWidth(body);u.popupFacts:SetWidth(body);u.popupEligibility:SetWidth(body)
         u.responseBar:SetWidth(body)
         u.note:SetWidth(body-10);u.note.hint:SetWidth(body-100)
+        local compact=self:LootWindowLayout("response")=="Compact"
+        local noteOpen=not compact or self.responseNoteExpanded==true
+        u.responseNoteToggle:SetShown(compact and self.noteDraftKey~=nil)
+        u.responseNoteToggle:SetText(noteOpen and "Hide Note" or (u.note:GetText()~="" and "Edit Note" or "Add Note"))
+        u.note:SetShown(noteOpen);u.noteBytes:SetShown(noteOpen);u.note.hint:SetShown(not compact)
+        place(u.popupStatus,92,compact and 92 or 108)
+        place(u.popupFacts,92,compact and 109 or 125)
+        place(u.responseBar,92,compact and 122 or 140)
+        place(u.popupEligibility,92,compact and 145 or 165)
+        place(u.note,97,compact and 195 or 200)
         local step=(body+10)/3
-        local buttonTop=math.min(245,h-145)
-        for i,b in ipairs(u.responseButtons) do place(b,92+(i-1)%3*step,buttonTop+math.floor((i-1)/3)*34,step-10) end
+        local buttonTop=compact and (197+(noteOpen and 44 or 0)) or math.min(245,h-145)
+        for i,b in ipairs(u.responseButtons) do
+            place(b,92+(i-1)%3*step,buttonTop+math.floor((i-1)/3)*(compact and 30 or 34),step-10)
+        end
+        local pitch=compact and 33 or 43
+        u.responseRail:SetHeight(compact and 248 or 300)
+        for i,b in ipairs(u.responseItemButtons) do place(b,5,(i-1)*pitch,compact and 33 or 40,compact and 32 or 38);b.icon:SetSize(compact and 24 or 30,compact and 24 or 30) end
+        place(u.responseRailPage,0,6*pitch)
+        place(u.responseRailPrevious,0,6*pitch+20)
+        place(u.responseRailNext,28,6*pitch+20)
         place(u.responsePrevious,92,h-45)
         place(u.responseNext,w-128,h-45)
         local scale=u.responseVoting:GetEffectiveScale()
@@ -533,8 +568,12 @@ function A:LayoutReadableWindow(frame)
         place(u.responseRoleHint,202,h-37,math.max(100,body-220))
     elseif frame==u.main then
         -- All panels fit within the actual window; never crop a larger canvas.
+        local compact=self:LootWindowLayout("voting")=="Compact"
         local sidebar=math.min(304,math.max(264,math.floor(w*304/1100+0.5)))
-        local surface=w-sidebar-16
+        local surface=compact and w or w-sidebar-16
+        u.selectedLootPane:SetShown(not compact)
+        u.votingHistory.frame:SetShown(not compact)
+        u.compareGear:SetShown(compact)
         u.votingSurface:SetSize(surface,h)
         frame.title:SetParent(frame.sltHeader or u.votingSurface)
         place(frame.title,80,12,surface-130)
@@ -547,7 +586,7 @@ function A:LayoutReadableWindow(frame)
         u.councilResponseBar:SetWidth(barWidth)
         place(u.itemStatus,127+barWidth+12,112,surface-149-barWidth,16)
         place(u.councilEmpty,90,190,surface-110,100)
-        self:LayoutVotingColumns(surface)
+        self:LayoutVotingColumns(surface,compact)
         local oldItems,oldCandidates=self.votingItemRows,self.votingCandidateRows
         self.votingItemRows=math.min(9,math.max(3,math.floor((h-251)/43)))
         self.votingCandidateRows=math.min(14,math.max(3,math.floor((h-332)/22)))
@@ -560,13 +599,21 @@ function A:LayoutReadableWindow(frame)
         place(u.itemPrev,16,h-162,22,22);place(u.itemNext,42,h-162,22,22)
         place(u.candidatePrev,80,h-177,85);place(u.candidateNext,surface-91,h-177,85)
         place(u.playerPagePrevious,surface-210,h-137,95);place(u.playerPageNext,surface-110,h-137,95)
-        place(u.selection,175,h-171,math.max(100,surface-455));place(u.playerHistory,surface-270,h-177)
+        if compact then
+            place(u.playerHistory,surface-208,h-177,110)
+            place(u.compareGear,surface-325,h-177,110)
+            place(u.selection,175,h-171,math.max(80,surface-510))
+        else
+            place(u.selection,175,h-171,math.max(100,surface-455))
+            place(u.playerHistory,surface-270,h-177)
+        end
         place(u.votingProgress,80,h-137,surface-310)
         place(u.votingOwn,80,h-105,surface-90,42)
         place(u.open,80,h-60)
         place(u.correctAward,250,h-60,140)
         place(u.votingResponses,surface-(self:IsMaster() and 225 or 145),h-60)
         place(u.votingLoot,surface-90,h-60)
+        if compact then return end
         local topHeight=math.floor(h/2)
         place(u.selectedLootPane,surface+16,0,sidebar,topHeight)
         local scrollWidth=sidebar-38
@@ -592,9 +639,20 @@ function A:SaveWindowLayout(frame,name)
     local scale=frame:GetScale()
     if not anchors[point] or not anchors[relativePoint] or not finite(x) or not finite(y) or not finite(scale) then return end
     local saved={point=point,relativePoint=relativePoint,x=x,y=y,scale=scale}
-    if self:IsReadableWindow(frame) then saved.width,saved.height,saved.geometryVersion=frame:GetWidth(),frame:GetHeight(),3 end
+    local store=self:WindowLayoutStore()
+    if self:IsReadableWindow(frame) then
+        local width,height=frame:GetWidth(),frame:GetHeight()
+        local prior=store[name]
+        saved.width,saved.height,saved.geometryVersion=width,height,3
+        if name=="SanguineLootCouncilTimer" then
+            if self:LootWindowLayout("timer")=="Compact" then
+                saved.compactWidth,saved.compactHeight=width,height
+                saved.width,saved.height=prior and prior.width,prior and prior.height
+            elseif prior then saved.compactWidth,saved.compactHeight=prior.compactWidth,prior.compactHeight end
+        end
+    end
     if name=="SanguineLootCouncilTrade" then saved.centeredLoot=true end
-    self:WindowLayoutStore()[name]=saved
+    store[name]=saved
 end
 
 function A:WindowScale(frame,scale)
@@ -647,6 +705,16 @@ function A:InstallWindowResizeGrip(frame,name)
     grip:SetScript("OnMouseUp",finish);grip:HookScript("OnHide",finish);frame:HookScript("OnHide",finish)
 end
 
+function A:PreferredWindowSize(frame,saved)
+    local policy=self:WindowPolicy(frame)
+    if self:CanResizeWindow(frame) and type(saved)=="table" and saved.geometryVersion==3 then
+        local width,height=saved.width,saved.height
+        if policy==compactPolicies.SanguineLootCouncilTimer then width,height=saved.compactWidth,saved.compactHeight end
+        if finite(width) and finite(height) and width>0 and height>0 then return width,height end
+    end
+    return policy[1],policy[2]
+end
+
 function A:RestoreWindowLayouts()
     local store=self:WindowLayoutStore()
     for _,entry in ipairs(self.windowFrames or {}) do
@@ -654,14 +722,7 @@ function A:RestoreWindowLayouts()
         self:FinishWindowMove(f,name)
         local saved,p=store[name],self:WindowPolicy(f)
         f:SetScale(1)
-        if p then
-            local width,height=p[1],p[2]
-            if self:CanResizeWindow(f) and type(saved)=="table" and saved.geometryVersion==3
-                and finite(saved.width) and finite(saved.height) and saved.width>0 and saved.height>0 then
-                width,height=saved.width,saved.height
-            end
-            self:ResizeReadableWindow(f,width,height)
-        end
+        if p then self:ResizeReadableWindow(f,self:PreferredWindowSize(f,saved)) end
         if p and p[7]=="loot" and (type(saved)~="table" or saved.centeredLoot~=true) then
             self:DefaultWindowPosition(f)
         elseif type(saved)=="table" and anchors[saved.point] and anchors[saved.relativePoint] and finite(saved.x) and finite(saved.y) then

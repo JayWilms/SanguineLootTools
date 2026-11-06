@@ -160,6 +160,57 @@ function A:CanQueueTrackedLoot(entry)
     return true
 end
 
+function A:LootSuggestion(entry)
+    return entry and entry.councilSuggestion and self:CanQueueTrackedLoot(entry) and entry.councilSuggestion
+end
+
+function A:CanSuggestLoot(entry,sender)
+    return not self.recoveryPending and self:IsCouncilMember(sender) and self:CanQueueTrackedLoot(entry)
+        and not entry.councilSuggestionDismissed and (not self.demo or entry.demo)
+end
+
+function A:ReduceLootSuggestion(sender,p)
+    local entry=integer(p.tracked,1,self.limits.maxID) and self:TrackedByID(p.tracked)
+    if not entry or entry.guid~=p.guid or not self:CanQueueTrackedLoot(entry) then
+        return false,"Choose an unqueued tracked item."
+    end
+    if p.op=="dismissLootSuggestion" then
+        if sender~=self.state.master or self.state.masterBlocked then
+            return false,"Only the Master Looter can dismiss suggestions."
+        end
+        if not entry.councilSuggestion then return true,nil,true end
+        entry.councilSuggestion=nil
+        entry.councilSuggestionDismissed=true
+        return true
+    end
+    if not self:CanSuggestLoot(entry,sender) then return false,"This loot suggestion is unavailable." end
+    local suggestion=entry.councilSuggestion
+    if not suggestion then
+        suggestion={first=sender,members={}}
+        entry.councilSuggestion=suggestion
+    end
+    if suggestion.members[sender] then return true,nil,true end
+    suggestion.members[sender]=true
+    return true
+end
+
+function A:NotifyLootSuggestions()
+    local s=self.state
+    local scope=s and (s.historyID or s.id)
+    if self.lootSuggestionNoticeScope~=scope then
+        self.lootSuggestionNoticeScope=scope
+        self.lootSuggestionNotices={}
+    end
+    if not s or not self:IsMaster() then return end
+    for _,entry in ipairs(s.trackedLoot or {}) do
+        local suggestion=self:LootSuggestion(entry)
+        if suggestion and not self.lootSuggestionNotices[entry.id] then
+            self.lootSuggestionNotices[entry.id]=true
+            self:Print(suggestion.first.." suggested "..entry.link.." for council. Open Loot to review.")
+        end
+    end
+end
+
 -- A holder change needs both clients' bag evidence for the same physical GUID.
 -- Keep claims local to the leader until the old holder confirms absence.
 function A:ConfirmBagHandover(entry,claim)
@@ -363,6 +414,7 @@ function A:ReduceLoot(sender, p)
             s.items[#s.items + 1], entry.item = item, item.id
             if p.release == true then self:StartResponses(item);self:SeedSoloTestResponses(item) end
         end
+        entry.councilSuggestion,entry.councilSuggestionDismissed=nil,nil
         return true
     end
     if p.expectedRevision ~= entry.deliveryRevision then return false, "This delivery changed. Review it again." end

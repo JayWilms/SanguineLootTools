@@ -162,7 +162,7 @@ end
 
 function A:RenderVotingHistory()
     local p=self.ui and self.ui.votingHistory
-    if not p then return end
+    if not p or self.ui.votingCompactLayout then return end
     local name=self.selectedCandidate
     local item=self.state and self:ItemByID(self.selectedItem or 0)
     local allowed=name and item and item.responses[name] and self:CanViewCouncil()
@@ -231,6 +231,71 @@ function A:FilterHistoryRecords(player, query, guildBank)
     return records
 end
 
+local function csvCell(value)
+    if value==nil then return "" end
+    if type(value)=="number" then return tostring(value) end
+    local value=tostring(value)
+    -- Spreadsheet programs can interpret formula-like text even inside quotes.
+    if value:match("^%s*[=+@%-]") or value:match("^[%c]") then value="'"..value end
+    return '"'..value:gsub('"','""')..'"'
+end
+
+function A:HistoryCSV(records)
+    local lines={"Award Time (UTC),Winner,Item Name,Item ID,Quantity,Response,Votes,Awarded By,Delivery Status,Award ID"}
+    for _,record in ipairs(records) do
+        local link=record.item or ""
+        local itemID=tonumber(link:match("item:(%d+)"))
+        local name=link:match("|h%[(.-)%]|h")
+        if not name and not itemID and link~="" then name=link end
+        lines[#lines+1]=table.concat({
+            csvCell(record.time and date("!%Y-%m-%dT%H:%M:%SZ",record.time)),
+            csvCell(record.winner),csvCell(name),csvCell(itemID),csvCell(record.quantity or 1),
+            csvCell(record.responseLabel or (self.responses or {})[record.response] or record.awardReason),
+            csvCell(record.votes),csvCell(record.master),csvCell(record.delivery and record.delivery.status),
+            csvCell(record.key),
+        },",")
+    end
+    return table.concat(lines,"\n").."\n"
+end
+
+function A:BuildHistoryExportUI(u,window,text,button)
+    local frame=window("SanguineLootCouncilHistoryExport","Loot History Export",780,465)
+    u.historyExportWindow=frame
+    u.historyExportSummary=text(frame,"",12,20,-48,730)
+    text(frame,"Press Ctrl+C to copy the CSV, then save it as a .csv file or import it into a spreadsheet.",11,20,-72,730)
+    local scroll=self:CreateScrollFrame(frame)
+    scroll:SetPoint("TOPLEFT",20,-100);scroll:SetSize(740,300)
+    local box=CreateFrame("EditBox",nil,scroll)
+    box:SetMultiLine(true);box:SetAutoFocus(false);box:SetFontObject("ChatFontNormal");box:SetWidth(710)
+    box:SetScript("OnEscapePressed",function(b) b:ClearFocus() end)
+    box:SetScript("OnTextChanged",function(b,userInput)
+        if userInput and b.exportText and b:GetText()~=b.exportText then b:SetText(b.exportText) end
+    end)
+    scroll:SetScrollChild(box)
+    u.historyExportBox,u.historyExportScroll=box,scroll
+    button(frame,"Select All",20,-420,120,function() box:SetFocus();box:HighlightText() end)
+    frame:HookScript("OnHide",function() box:ClearFocus() end)
+end
+
+function A:ShowHistoryExport()
+    if self.historyDeleteMode then return false end
+    local records=self:FilterHistoryRecords(self.historyFilter,self.historySearch,self.historyGuildBank)
+    if #records==0 then return false end
+    local u=self.ui
+    local box=u.historyExportBox
+    box.exportText=self:HistoryCSV(records)
+    box:SetText(box.exportText)
+    local _,lineBreaks=box.exportText:gsub("\n","")
+    box:SetHeight(math.max(300,(lineBreaks+1)*50))
+    local scope=self.historyGuildBank and "Guild Bank" or (self.historyFilter or "All Rewards")
+    u.historyExportSummary:SetText(scope.." | "..#records.." matching "..(#records==1 and "record" or "records"))
+    u.historyExportWindow:Show()
+    self:FocusWindow(u.historyExportWindow)
+    box:SetFocus();box:HighlightText()
+    u.historyExportScroll:SetVerticalScroll(0)
+    return true
+end
+
 function A:CaptureHistoryLink(link)
     local u=self.ui
     if not u or not u.history or u.history:IsShown()~=true or not u.historySearch
@@ -297,6 +362,7 @@ function A:RenderHistoryDeletion(records,viewKey)
     end
     local u=self.ui
     if not u or not u.historyDelete then return end
+    if u.historyExport then u.historyExport:SetEnabled(not self.historyDeleteMode and #records>0) end
     local count=self:HistoryDeleteCount()
     u.historyDelete:SetText(self.historyDeleteMode and ("Delete Selected ("..count..")") or "Delete History")
     u.historyDelete:SetEnabled(not self.historySync and (not self.historyDeleteMode or count>0))

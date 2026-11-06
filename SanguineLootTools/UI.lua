@@ -365,7 +365,7 @@ function A:BuildUI()
     u.settings = button(f, "Leader settings", 270, -80, 135, function() u.config:Show(); A:Render() end)
     u.myResponses = button(f, "My responses", 410, -80, 130, function() A:ShowResponses() end)
     u.lootHistory = button(f, "Loot history", 545, -80, 110, function() A:ShowHistory() end)
-    u.readiness = button(f, "Version Check", 660, -80, 110, function() A:StartReadiness() end)
+    u.readiness = button(f, "Pre-Raid Loot Check", 660, -80, 180, function() A:StartAddonCheck(true) end)
     u.resume = button(f, "Resume saved", 775, -80, 125, function() A:ShowConfirmation("SANGUINELOOTCOUNCIL_RESUME") end)
     u.itemInput = edit(f, 25, -140, 650, "Shift-click an item here to add it to the session")
     u.itemInput:HookScript("OnTextChanged",function()
@@ -595,6 +595,14 @@ function A:BuildUI()
     u.noteBytes:ClearAllPoints();u.noteBytes:SetPoint("TOPRIGHT",u.note,"TOPRIGHT",0,18)
     u.noteBytes:SetJustifyH("RIGHT");u.noteBytes:SetHeight(14);u.noteBytes:SetMaxLines(1)
     u.note:SetScript("OnTextChanged",function() A:RenderResponseTimer() end)
+    u.responseNoteToggle=button(p,"Add Note",92,-164,105,function()
+        A.responseNoteExpanded=not A.responseNoteExpanded
+        if not A.responseNoteExpanded then u.note:ClearFocus() end
+        A:ResizeReadableWindow(p,p:GetWidth(),p:GetHeight())
+        A:ClampWindowPosition(p)
+        if A.responseNoteExpanded then u.note:SetFocus() end
+    end)
+    u.responseNoteToggle:Hide()
     u.responseButtons = {}
     local responseFont=CreateFont("SanguineLootCouncilResponseFont")
     responseFont:SetFont(STANDARD_TEXT_FONT,13,"OUTLINE");responseFont:SetTextColor(1,1,1)
@@ -642,6 +650,7 @@ function A:BuildUI()
     u.historyGuildBank=button(h,"Guild Bank",195,-132,165,function()
         A:ShowHistory(nil,not A.historyGuildBank)
     end)
+    u.historyExport=button(h,"Export CSV",680,-510,120,function() A:ShowHistoryExport() end)
     u.historySync=button(h,"Sync History",810,-510,130,function() A:StartHistorySync() end)
     u.historySync:SetScript("OnEnter",function(b)
         GameTooltip:SetOwner(b,"ANCHOR_RIGHT")
@@ -676,14 +685,18 @@ function A:BuildUI()
     u.historyText = text(child, "", 12, 0, 0, 705)
     u.historyText:SetJustifyV("TOP")
     u.historyText:Hide() -- Plain summary retained for diagnostics; the window renders aligned columns.
-    u.checkWindow = window("SanguineLootCouncilReadiness", "Sanguine Loot Tools - Version Check", 640, 500)
-    u.checkDescription=text(u.checkWindow,"Everyone in the group is listed. Not detected means no reply; the addon may be absent, disabled, outdated or delayed.",11,20,-54,590);u.checkDescription:SetHeight(40)
+    u.checkWindow = window("SanguineLootCouncilReadiness", "Sanguine Loot Tools - Pre-Raid Loot Check", 640, 500)
+    u.checkRoles={}
+    for i=1,4 do
+        u.checkRoles[i]=text(u.checkWindow,"",11,20,-(48+(i-1)*19),590)
+        u.checkRoles[i]:SetMaxLines(1)
+    end
     u.checkExpected=text(u.checkWindow,"",10,430,-22,150);u.checkExpected:SetJustifyH("RIGHT")
-    u.checkplayerHeader=text(u.checkWindow,"PLAYER",10,20,-110,280)
-    u.checkaddonHeader=text(u.checkWindow,"ADDON",10,320,-110,130)
-    u.checkversionHeader=text(u.checkWindow,"VERSION",10,460,-110,130)
+    u.checkplayerHeader=text(u.checkWindow,"PLAYER",10,20,-139,280)
+    u.checkaddonHeader=text(u.checkWindow,"ADDON STATUS",10,320,-139,130)
+    u.checkversionHeader=text(u.checkWindow,"VERSION",10,460,-139,130)
     local checkScroll = A:CreateScrollFrame(u.checkWindow)
-    checkScroll:SetPoint("TOPLEFT",20,-132);checkScroll:SetPoint("BOTTOMRIGHT",-35,65)
+    checkScroll:SetPoint("TOPLEFT",20,-161);checkScroll:SetPoint("BOTTOMRIGHT",-35,65)
     u.checkScroll=checkScroll
     u.checkChild=CreateFrame("Frame",nil,checkScroll)
     u.checkChild:SetSize(585,400);checkScroll:SetScrollChild(u.checkChild)
@@ -715,7 +728,7 @@ function A:BuildUI()
         checkElapsed = checkElapsed + dt
         if checkElapsed >= 1 then checkElapsed = 0; A:RenderReadiness() end
     end)
-    -- Version Check is a standalone destination, including when dismissed with Escape.
+    -- The loot check is a standalone destination, including when dismissed with Escape.
     local function hideOtherWindows()
         for _, frame in ipairs(A.allWindowFrames or {}) do
             if frame ~= u.checkWindow then frame:Hide() end
@@ -746,6 +759,7 @@ function A:BuildUI()
     self:BuildPersonalColorUI(u,window,text,button,edit)
     self:BuildDiagnosticUI(u,window,text,button)
     self:BuildAuditUI(u,window,text)
+    self:BuildHistoryExportUI(u,window,text,button)
     u.launcher=window("SanguineLootCouncilLauncher","Sanguine Loot Tools",320,205)
     u.launcherButtons={}
     for i,name in ipairs({"Responses","Voting","Loot","Timer","History","Settings"}) do
@@ -842,7 +856,7 @@ function A:Render()
     u.status:SetText((self.demo and (self:TestLabel().." | ") or "") .. (s and ("Leader: " .. s.leader .. "  |  Master looter: " .. s.master .. (s.masterBlocked and " (waiting for game role)" or (s.masterSource == "game" and " (game)" or " (addon)"))) or "No active session. The raid leader starts and configures it."))
     if self.recoveryPending then u.status:SetText("Recovering the loot session. Loot actions are paused.") end
     u.start:SetEnabled(self:IsLeader() and not s and not self.recoveryPending)
-    u.finish:SetEnabled(self:IsLeader() and s ~= nil)
+    u.finish:SetEnabled(self:IsLeader() and s ~= nil and not self.manualRecovery)
     u.settings:SetEnabled(self:CanConfigureRaid())
     u.readiness:SetEnabled(self:IsLootController() and not self.demo)
     u.readiness:SetShown(self:IsLootController())
@@ -906,6 +920,7 @@ function A:Render()
     u.candidateNext:SetEnabled(item~=nil and selectedIndex<#s.items)
     u.itemTitle:SetText(item and item.link or (not s and "No active session" or (#s.items==0 and "No loot queued" or "Select an item")))
     u.itemIcon:SetTexture(self:ItemIcon(item)); u.itemIcon:SetShown(item ~= nil)
+    u.votingItemHover:SetShown(u.votingCompactLayout==true and item~=nil)
     u.itemStatus:SetText(item and ("Status: " .. item.status .. (item.winner and "  |  Winner: " .. item.winner or "")) or "")
     u.itemDetails:SetText(item and self:ItemSummary(item) or "")
     local candidates = {}
@@ -972,7 +987,7 @@ function A:Render()
     if self.rerollContext and not self:ReleaseContextValid(self.rerollContext) then self:CloseReroll() end
     u.vote:SetEnabled(self:IsCouncil() and mutable and item.voting == "open" and self.selectedCandidate ~= nil)
     u.votingDesk:SetEnabled(item ~= nil and (self:IsMaster() or self:IsCouncil()))
-    u.compareGear:SetEnabled(item ~= nil and self.selectedCandidate ~= nil and (self:IsMaster() or self:IsCouncil()))
+    u.compareGear:SetEnabled((item and item.responses[self.selectedCandidate or ""] and self:CanViewCouncil()) and true or false)
     u.correctAward:SetShown(self:IsMaster())
     u.correctAward:SetEnabled(self:IsMaster() and item and item.status=="awarded" and #self:CorrectionCandidates(item)>0 and #(item.corrections or {})<10)
     self:RenderVotingStatus()
@@ -1015,10 +1030,14 @@ function A:Render()
     self:RenderResponseRail(rows,hidden)
     local noteKey=current and (s.id..":"..current.id..":"..(current.responseRound or 0))
     if noteKey~=self.noteDraftKey then
+        if self.responseNoteExpanded then u.note:ClearFocus() end
+        self.responseNoteExpanded=nil
         self.noteDraftKey=noteKey
         u.note:SetText(noteKey and self.noteDrafts[noteKey] or "")
     end
-    self:ResizeReadableWindow(u.popup,u.popup:GetWidth(),u.popup:GetHeight())
+    local responseHeight=u.popup:GetHeight()
+    self:ResizeReadableWindow(u.popup,u.popup:GetWidth(),responseHeight)
+    if u.popup:IsShown() and responseHeight~=u.popup:GetHeight() then self:ClampWindowPosition(u.popup) end
     u.popupItem:SetText(current and current.link or self:ResponseEmptyMessage(hidden))
     u.popupIcon:SetTexture(self:ItemIcon(current)); u.popupIcon:SetShown(current ~= nil)
     u.popupItemHover:SetShown(current ~= nil)
@@ -1127,7 +1146,7 @@ end
 
 function A:ShowReadiness()
     if not self:IsLootController() or self.demo then self:Print("Only the raid leader and master looter can view addon readiness."); return end
-    self:BuildUI();self:RenderReadiness();self.ui.checkWindow:Show()
+    self:BuildUI();self.ui.checkWindow:Show();self:RenderReadiness()
 end
 
 function A:ShowHistory(player,guildBank)
@@ -1238,9 +1257,10 @@ SlashCmdList["SANGUINELOOTTOOLS"] = function(input)
     elseif command == "loot" then A:ShowLootWindow("timer")
     elseif command == "timer" then A:ShowLootTimers()
     elseif command == "sync" then A:RequestSync()
+    elseif command == "takeover" then A:TakeOverSession()
     elseif command == "check" then A:StartAddonCheck(true)
     elseif command == "resume" then A:Render(); if A:RecoveryAvailable() then A:ShowConfirmation("SANGUINELOOTCOUNCIL_RESUME") else A:Print("No saved session is available for this raid leader.") end
-    elseif command == "help" then A:Print("/slt opens the window launcher; /slt settings; /slt responses; /slt loot; /slt timer (all roles); /slt test; /slt leave-test; /slt history; /slt sync; /slt check; /slt resume; /slt diagnostics.")
+    elseif command == "help" then A:Print("/slt opens the window launcher; /slt settings; /slt responses; /slt loot; /slt timer (all roles); /slt test; /slt leave-test; /slt history; /slt sync; /slt check; /slt resume; /slt takeover; /slt diagnostics.")
     elseif command == "" then
         A:ShowLauncher()
     else A:Print("Unknown command. Use /slt help; /slt loot opens loot tracking.")

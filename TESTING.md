@@ -1,6 +1,41 @@
+# Alpha.69 live checklist
+
+Install alpha.69 on every client in the raid, preserve SavedVariables, and start a fresh normal session. Alpha.69 uses protocol 19. Run the sections below on alpha.69. The alpha.66–.68 headings identify when those features first shipped.
+
+## Compact Timer, CSV export and council suggestions
+
+- [ ] In Settings > Display, switch the Timer to Compact and scroll a long list. Verify only the item and trade countdown appear. Switch back to Full and check holder details and each mode's saved size.
+- [ ] From History, export a search, My Rewards, and Guild Bank. Verify the matching record count includes rows below the scroll area, Ctrl+C copies the complete CSV, and a spreadsheet imports the award IDs and item names correctly.
+- [ ] In each Timer layout, right-click an unqueued tracked copy as council and choose Suggest for Council while the Master Looter has Loot closed. A second council member can flag that copy without a second notice. Check the names on hover, dismissal by the Master Looter, and that Queue starts responses and clears the suggestion.
+
+## Raid chat announcements
+
+- [ ] In a live raid, check Settings > Announcements. Responses Open and Item Awards start on. Tracked for Council starts off.
+- [ ] Enable tracked announcements and report the same council item twice. Verify one message when it first appears. Queue multiple items together and verify one response notice with the configured duration.
+- [ ] Award and correct a council item. Verify each produces one Raid message. Confirm automated Guild Bank and Disenchant items, trade confirmations, resyncs, restores and test sessions stay quiet.
+
+## Compact Response and Voting layouts
+
+- [ ] Switch each window between Full and Compact in Settings > Display. Verify that the choices are independent and persist after reload.
+- [ ] In Compact Response, queue multiple items and use all nine response slots with the note expanded. Verify the timer, response buttons, item paging and navigation remain visible. Close the note field, switch items and return to verify the draft is retained and submitted with the response.
+- [ ] In Compact Voting, vote and award from the candidate rows. Select a candidate and open Compare Gear and Full History. Check item and note tooltips, then switch back to Full and verify the columns and side panels return.
+
+## Pre-Raid Loot Check
+
+- [ ] Before starting a session, use Settings > Session > Pre-Raid Loot Check or /slt check. Verify the game Master Looter, configured council, and named Raid Assistant match the current raid.
+- [ ] Include one client on an older version and one without an addon reply. Confirm the list distinguishes version mismatch from no reply.
+- [ ] Start a session, run the check again, and verify the recovery copy after the backup receives the current state. Change the session or disconnect the backup and verify the earlier reply no longer confirms recovery.
+
+## Session takeover without a crown transfer
+
+- [ ] With four Forever clients, promote one Raid Assistant and name them in Settings > Session. Verify ordinary raid members are absent from the picker, and demoting the named assistant removes their takeover eligibility.
+- [ ] Leave the crown on an offline Raid Leader. Verify only the online Master Looter can take over. Repeat with both offline and verify only the named Raid Assistant can take over.
+- [ ] Check votes, response deadlines, awards and pending trade holders after takeover. Verify a reconnecting original leader follows the new host and a rejoining raider discovers it.
+- [ ] While the assistant hosts, verify they can record addon awards and that native corpse distribution still requires the in-game Master Looter.
+
 ## Alpha.68: Loot session recovery (protocol 18)
 
-- [ ] Install alpha.68 on at least three clients and start a fresh normal raid session. Assign a Master Looter or council member distinct from the leader. Keep the backup online for both recovery tests.
+- [ ] Install alpha.69 on at least three clients and start a fresh normal raid session. Assign a Master Looter or council member distinct from the leader. Keep the backup online for both recovery tests.
 - [ ] Open responses on one item, cast a vote on another, and award a third without trading it. Reload the Raid Leader. Check that Sanguine resumes automatically with the original response deadline, recorded votes, winner and item holder.
 - [ ] Repeat with a Raid Leader promotion while the original leader is online. Then repeat with the original leader disconnected and the designated backup still online. Rejoin on the original leader and check that only the current leader controls the session.
 - [ ] Test with the backup absent and with a newer public revision than the private copy. Verify Sanguine reports the missing recovery copy instead of continuing from stale votes or awards. Use /slt sync to retry.
@@ -8,13 +43,13 @@
 
 ## Alpha.67: Optional Transmog response
 
-- [ ] With everyone on alpha.67, add Transmog from the Responses settings and start a fresh round. Verify the choice appears on a second client and a submitted Transmog response appears in Voting.
+- [ ] With everyone on alpha.69, add Transmog from the Responses settings and start a fresh round. Verify the choice appears on a second client and a submitted Transmog response appears in Voting.
 - [ ] Queue the same item link for a player who owns the look from a different item and a player who can learn it. Check that only the latter can choose Transmog and both can still use their gear responses.
 - [ ] Check an unlearnable appearance and an item with unavailable appearance data. Verify Transmog is disabled for the former and marked Unverified but available for the latter. Try the Response window at its minimum size with seven or more choices.
 
 ## Alpha.66: Master Looter handoff and response previews
 
-- [ ] With everyone on alpha.66, start a fresh raid session using WoW Master Loot. Open a response round and vote as the Master Looter without manually adding them to council.
+- [ ] With everyone on alpha.69, start a fresh raid session using WoW Master Loot. Open a response round and vote as the Master Looter without manually adding them to council.
 - [ ] Assign a different raid member under Settings → Council. Verify WoW and Sanguine show the same holder, only the new Master Looter can queue and award, and their automatic council seat is active. The previous holder's votes should still count while they remain in the raid. Pending trades should stay with the item holders.
 - [ ] Switch to another loot method. Verify Sanguine uses the saved assignee when present and the raid leader when that assignee is absent. If WoW declines a handoff, verify the picker shows the manual fallback.
 - [ ] In Responses, Ctrl-click an equippable item from the sidebar and again from the item name. Verify the dressing room opens. Test Shift-click with chat open and a plain click on a sidebar icon.

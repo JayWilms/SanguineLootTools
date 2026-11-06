@@ -7,7 +7,7 @@ lua.execute('''
 A={};SlashCmdList={}
 function CreateFrame() return {RegisterEvent=function() end,SetScript=function() end} end
 ''')
-for name in ['Core','Features','Voting','ResponseConfig','Responses','LootConfiguration','Warnings','WindowLayouts']:
+for name in ['Core','Features','Voting','ResponseConfig','Responses','LootConfiguration','Warnings','WindowLayouts','CouncilUI']:
     lua.execute((root/'SanguineLootTools'/f'{name}.lua').read_text(),'SanguineLootTools',lua.globals().A)
 lua.execute('''
 A.me='Leader-Realm';A.roster={};A.leader=nil
@@ -40,6 +40,100 @@ A:SetLootWindowAutoOpen(true)
 assert(A.state.lootConfiguration.openWindow)
 A.state=nil
 
+
+-- Both window layouts are independent and survive character/profile switches.
+assert(A:LootWindowLayout('response')=='Full' and A:LootWindowLayout('voting')=='Full')
+assert(A:SetLootWindowLayout('response','Compact'))
+assert(A:LootWindowLayout('response')=='Compact' and A:LootWindowLayout('voting')=='Full')
+assert(not A:SetLootWindowLayout('loot','Compact'))
+assert(not A:SetLootWindowLayout('response','Unknown'))
+A.me='Leader-Realm'
+assert(A:LootWindowLayout('response')=='Full')
+assert(A:SetLootWindowLayout('voting','Compact'))
+A.me='Alt-Realm'
+assert(A:LoadProfile('Display independent'))
+assert(A:LootWindowLayout('response')=='Compact' and A:LootWindowLayout('voting')=='Full')
+
+local response, voting={},{}
+A.windowFrames={{name='SanguineLootCouncilResponses',frame=response},{name='SanguineLootCouncilMain',frame=voting}}
+assert(A:WindowPolicy(response)[1]==620 and A:WindowPolicy(voting)[1]==1100)
+A.me='Leader-Realm'
+assert(A:WindowPolicy(response)[1]==760 and A:WindowPolicy(voting)[1]==740)
+A.me='Alt-Realm'
+
+local oldOptions=A.ResponseOptions
+local options={}
+function A:ResponseOptions() return options end
+for i=1,6 do options[i]={enabled=true} end
+assert(A:ResponseWindowHeight()==315)
+for i=7,9 do options[i]={enabled=true} end
+assert(A:ResponseWindowHeight()==345)
+A.responseNoteExpanded=true
+assert(A:ResponseWindowHeight()==389)
+A.responseNoteExpanded=nil
+A.ResponseOptions=oldOptions
+
+-- Timer mode has independent sizing and keeps existing Full dimensions.
+local timer={}
+A.windowFrames[#A.windowFrames+1]={name='SanguineLootCouncilTimer',frame=timer}
+local timerSaved={width=672,height=350,compactWidth=400,compactHeight=260,geometryVersion=3}
+local w,h=A:PreferredWindowSize(timer,timerSaved)
+assert(w==672 and h==350)
+assert(A:SetLootWindowLayout('timer','Compact'))
+w,h=A:PreferredWindowSize(timer,timerSaved)
+assert(w==400 and h==260 and A:WindowPolicy(timer)[1]==380)
+A.me='Leader-Realm'
+assert(A:LootWindowLayout('timer')=='Full')
+A.me='Alt-Realm'
+
+-- Keep response actions and paging inside the tighter footprint.
+local function layoutWidget(height)
+ return {
+    h=height or 26,text='',
+    ClearAllPoints=function() end,SetPoint=function(w,_,x,y) w.x,w.y=x,-y end,
+    SetWidth=function(w,v) w.w=v end,SetHeight=function(w,v) w.h=v end,
+    SetSize=function(w,x,y) w.w,w.h=x,y end,
+    GetWidth=function(w) return w.w end,GetHeight=function(w) return w.h end,
+    GetEffectiveScale=function() return 1 end,
+    SetShown=function(w,v) w.shown=v end,SetText=function(w,v) w.text=v end,
+    GetText=function(w) return w.text end,SetMaxLines=function() end,
+ }
+end
+response=layoutWidget(389);response.w=620;response.title=layoutWidget()
+local u={popup=response,lootTimers={},lootPanels={deliveries={}},responseButtons={},responseItemButtons={}}
+A.ui=u;A.noteDraftKey='item:1'
+for _,key in ipairs({'responseProgress','popupItem','popupStatus','popupFacts','popupEligibility','responseBar',
+    'note','noteBytes','responseNoteToggle','responseRail','responseRailPage','responseRailPrevious','responseRailNext',
+    'responsePrevious','responseNext','responseVoting','responseRoleHint'}) do u[key]=layoutWidget() end
+u.note.hint=layoutWidget()
+for i=1,9 do u.responseButtons[i]=layoutWidget() end
+for i=1,6 do u.responseItemButtons[i]=layoutWidget();u.responseItemButtons[i].icon=layoutWidget() end
+function A:StyleButtonOutline() end
+A.responseNoteExpanded=true
+A:LayoutReadableWindow(response)
+assert(u.note.shown and u.responseNoteToggle.shown and u.responseNoteToggle.text=='Hide Note')
+assert(u.responseButtons[9].y+u.responseButtons[9].h<u.responseNext.y)
+assert(58+u.responseRailNext.y+u.responseRailNext.h<response.h)
+u.note.text='My draft'
+A.responseNoteExpanded=nil;response.h=345
+A:LayoutReadableWindow(response)
+assert(not u.note.shown and not u.note.hint.shown and u.note.text=='My draft' and u.responseNoteToggle.text=='Edit Note')
+assert(u.responseButtons[9].y+u.responseButtons[9].h<u.responseNext.y)
+
+-- Compact voting keeps the ballot controls aligned and restores the Full columns.
+local candidate=layoutWidget()
+candidate.cells={};candidate.gear={layoutWidget(),layoutWidget()}
+candidate.pick=layoutWidget();candidate.noteButton=layoutWidget();candidate.award=layoutWidget()
+u.councilHeadings={};u.councilHeadingBackground=layoutWidget();u.candidates={candidate}
+for i=1,9 do u.councilHeadings[i]=layoutWidget();candidate.cells[i]=layoutWidget() end
+A:LayoutVotingColumns(620,true)
+assert(not u.councilHeadings[5].shown and u.councilHeadings[9].shown)
+assert(candidate.pick.x+candidate.pick.w<candidate.award.x)
+assert(candidate.award.x+candidate.award.w<=candidate.w)
+A:LayoutVotingColumns(780,false)
+assert(u.councilHeadings[5].shown and candidate.cells[5].shown)
+A.ui=nil;A.noteDraftKey=nil
+
 local first={width=900,height=600,x=11,y=22}
 local second={width=720,height=400,x=33,y=44}
 A.windowFrames={{name='SanguineLootCouncilTrade',frame=first},{name='SanguineLootCouncilTimer',frame=second}}
@@ -67,6 +161,7 @@ function A:RestoreWindowLayouts()
 end
 A:ResetWindowLayout();assert(A.restoredAll and store.positionsLocked)
 assert(A:LootWindowAutoOpen(),'layout reset changed the opening preference')
+assert(A:LootWindowLayout('response')=='Compact','layout reset changed the display mode')
 ''')
 print('Auto-open is per-character and independent of raid profiles/state; single-window reset preserves other layouts and display preferences.')
 

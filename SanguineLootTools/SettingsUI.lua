@@ -4,8 +4,8 @@ local function move(object,parent,x,y,width,height)
     if width then object:SetWidth(width) end
     if height then object:SetHeight(height) end
 end
-local pageOrder={"Session","Loot Configuration","Responses","Council","Alerts","Display","Profiles","Advanced"}
-local pageDescriptions={["Loot Configuration"]="Choose what is collected, who receives automatic assignments and why.",Session="Manage this raid and its pre-raid checks.",Responses="Configure raid choices and personalise your colours.",Council="Assign loot authority and set council voting rules.",Alerts="Control trade-expiry warnings and sounds.",Display="Personal window layout and opening preferences.",Profiles="Reuse your raid configuration.",Advanced="Recovery and diagnostics for when you need them."}
+local pageOrder={"Session","Loot Configuration","Responses","Council","Alerts","Announcements","Display","Profiles","Advanced"}
+local pageDescriptions={["Loot Configuration"]="Choose what is collected, who receives automatic assignments and why.",Session="Manage this raid and its pre-raid checks.",Responses="Configure raid choices and personalise your colours.",Council="Assign loot authority and set council voting rules.",Alerts="Control trade-expiry warnings and sounds.",Announcements="Choose which loot events appear in Raid chat.",Display="Personal window layout and opening preferences.",Profiles="Reuse your raid configuration.",Advanced="Recovery and diagnostics for when you need them."}
 local togglePath="Interface\\AddOns\\SanguineLootTools\\Assets\\"
 local function switch(control)
     control:SetSize(76,26);control:SetBackdrop(nil)
@@ -277,9 +277,23 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     u.raidSetupSummary=text(session,"",12,0,-70,690)
     position(u.raidSetupSummary,session,0,70,function(w) return w end,100);u.raidSetupSummary:SetJustifyV("TOP")
     for i,key in ipairs({"start","finish","resume"}) do local index=i;position(u[key],session,function(w) return (index-1)*(w+10)/3 end,187,function(w) return (w-20)/3 end,30) end
-    section(session,"Before The Raid",250)
-    row(session,"Addon versions","Review group versions before distributing loot.",290,u.readiness,180)
-    session:SetHeight(380)
+    section(session,"Session Takeover",250)
+    u.recoveryAssistant=button(session,"No Raid Assistant selected",0,0,210,function() end)
+    dropdown(u.recoveryAssistant,function()
+        local choices={{"Clear selection",false}}
+        for _,choice in ipairs(A:RaidMemberChoices()) do
+            if A:IsRaidAssistant(choice[2]) then choices[#choices+1]=choice end
+        end
+        return choices
+    end,function(name) A:Act("recoveryAssistant",{target=name}) end)
+    row(session,"Backup Raid Assistant","Receives a private recovery copy for use if the Raid Leader and Master Looter are unavailable.",287,u.recoveryAssistant,210)
+    u.takeOverSession=button(session,"Take Over Loot Session",0,0,210,function() A:TakeOverSession() end)
+    u.takeOverStatus=text(session,"",11,0,-352,450)
+    position(u.takeOverStatus,session,0,352,function(w) return w-225 end,38)
+    position(u.takeOverSession,session,function(w) return w-210 end,353,210,28)
+    section(session,"Before The Raid",430)
+    row(session,"Loot readiness","Review addon replies, loot roles and recovery backups.",470,u.readiness,180)
+    session:SetHeight(560)
     local display=u.settingsPages.Display.content
     section(display,"Window Layout",0)
     u.lockWindows=button(display,"",0,0,76,function() A:SetWindowPositionsLocked(not A:WindowPositionsLocked()) end);switch(u.lockWindows)
@@ -303,7 +317,18 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     section(display,"Loot Window",380)
     u.lootOpen=button(display,"",0,0,76,function() A:SetLootWindowAutoOpen(not A:LootWindowAutoOpen()) end);switch(u.lootOpen)
     row(display,"Loot Window Auto-Open","Open your Loot window when new tracked loot arrives. Tracking continues when disabled.",420,u.lootOpen,76)
-    display:SetHeight(510)
+    section(display,"Window Layout Modes",510)
+    for i,kind in ipairs({"response","voting","timer"}) do
+        local control=button(display,"Full",0,0,180,function() end)
+        u[kind.."LayoutPicker"]=control
+        dropdown(control,{{"Full","Full"},{"Compact","Compact"}},function(mode) A:SetLootWindowLayout(kind,mode) end)
+        local title=kind=="response" and "Response Window Layout" or kind=="voting" and "Voting Window Layout" or "Timer Window Layout"
+        local help=kind=="response" and "Compact keeps responses one click away and opens the note field on demand."
+            or kind=="voting" and "Compact shows the ballot table, with gear and history available for the selected candidate."
+            or "Compact shows the item and trade timer."
+        row(display,title,help,550+(i-1)*73,control,180)
+    end
+    display:SetHeight(783)
     local alerts=u.settingsPages.Alerts.content
     section(alerts,"Trade-Expiry Warnings",0)
     description(alerts,"Warnings go to the raid leader, Master Looter and item holder.",30)
@@ -319,6 +344,22 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     u.warningApply=button(alerts,"Apply thresholds",0,0,180,function() local c=A:WarningSettings();c.early=(tonumber(u.warningEarly:GetText()) or -1)*60;c.urgent=(tonumber(u.warningUrgent:GetText()) or -1)*60;A:ApplyWarningSettings(c);u.warningEarly:ClearFocus();u.warningUrgent:ClearFocus() end)
     position(u.warningApply,alerts,function(w) return w-180 end,446,180,28)
     description(alerts,"Each threshold alerts once per item copy. Unknown or stale timers do not count down.",498);alerts:SetHeight(560)
+    local announcements=u.settingsPages.Announcements.content
+    section(announcements,"Raid Chat",0)
+    u.announcementToggles={}
+    for i,option in ipairs({
+        {"tracked","Tracked for Council","Announce items when they first become available for council."},
+        {"responses","Responses Open","Announce when the Master Looter opens or reopens responses."},
+        {"awards","Item Awards","Announce winners and award corrections for council loot."},
+    }) do
+        local key=option[1]
+        local control=button(announcements,"",0,0,76,function()
+            A:Act("announcementSetting",{key=key,enabled=not A:AnnouncementSettings()[key]})
+        end)
+        switch(control);u.announcementToggles[key]=control
+        row(announcements,option[2],option[3],42+(i-1)*73,control,76)
+    end
+    announcements:SetHeight(285)
     local council=u.settingsPages.Council.content;u.councilSettingsContent=council;u.councilSettingsScroll=u.settingsScrolls.Council
     section(council,"Master Looter",0)
     u.masterStatus=text(council,"",11,0,-36,690);position(u.masterStatus,council,0,36,function(w) return w end,42);u.masterStatus:SetMaxLines(3)
@@ -462,8 +503,6 @@ function A:BuildSettingsUI(u,window,text,button,edit)
             and not u.checkWindow:IsShown() then A:ShowLootWindow() end
     end)
     for _,key in ipairs({"myResponses","deliveries","settings","votingRules","session","config","rules"}) do u[key]:Hide() end
-    u.readiness:SetScript("OnClick",function() A:StartAddonCheck(true) end);u.readiness:SetText("Version Check")
-    u.recheck:SetScript("OnClick",function() A:StartAddonCheck(true) end)
     u.tradeAlerts=window("SanguineLootCouncilTradeAlerts","Trade time warning",570,310)
     u.tradeAlertScroll=A:CreateScrollFrame(u.tradeAlerts);u.tradeAlertScroll:SetPoint("TOPLEFT",20,-55);u.tradeAlertScroll:SetSize(505,185)
     u.tradeAlertChild=CreateFrame("Frame",nil,u.tradeAlertScroll);u.tradeAlertChild:SetSize(480,185);u.tradeAlertScroll:SetScrollChild(u.tradeAlertChild)
@@ -487,7 +526,7 @@ function A:RefreshSettingsDropdowns()
     end
     if u.settingsDropdown and u.settingsDropdown.owner and (u.settingsDropdown.owner:IsEnabled()==false or not u.settingsDropdown.owner:IsVisible()) then self:CloseSettingsDropdown() end
 end
-function A:OpenSettingsDropdown(owner,choices,action)
+function A:OpenSettingsDropdown(owner,choices,action,width)
     local u=self.ui
     local menu=u.settingsDropdown
     if menu and menu:IsShown() and menu.owner==owner then self:CloseSettingsDropdown();return end
@@ -552,7 +591,7 @@ function A:OpenSettingsDropdown(owner,choices,action)
     end
     self:StylePanel(menu);menu:ClearAllPoints()
     menu:SetBackdropColor(.055,.06,.07,1)
-    menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetPoint("TOPRIGHT",owner,"BOTTOMRIGHT",0,-3);menu:SetSize(math.max(180,owner:GetWidth()),math.min(248,#choices*30+8));menu:SetClampedToScreen(true)
+    menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetPoint("TOPRIGHT",owner,"BOTTOMRIGHT",0,-3);menu:SetSize(width or math.max(180,owner:GetWidth()),math.min(248,#choices*30+8));menu:SetClampedToScreen(true)
     menu:EnableMouse(true)
     u.settingsDropdown=menu;menu.owner,menu.choices,menu.action,menu.offset=owner,choices,action,0
     self:RenderSettingsDropdown()
@@ -702,12 +741,12 @@ function A:RenderRaidSetupSummary()
         "\n"..memberSummary)
 end
 
-local sharedSettingsPages={Session=true,["Loot Configuration"]=true,Responses=true,Council=true,Alerts=true,Profiles=true}
+local sharedSettingsPages={Session=true,["Loot Configuration"]=true,Responses=true,Council=true,Alerts=true,Announcements=true,Profiles=true}
 function A:RefreshSettingsContext()
     local u,s=self.ui,self.state
     if not u or not u.settingsStatus or not u.settingsAccess then return end
     local page=self.settingsPage or "Session"
-    local role=self:IsLeader() and "Raid Leader" or self:IsMaster() and "Master Looter" or self:IsCouncil() and "Council" or "Raider"
+    local role=self:IsLeader() and (self:IsGameLeader() and "Raid Leader" or "Loot Session Host") or self:IsMaster() and "Master Looter" or self:IsCouncil() and "Council" or "Raider"
     local context=not s and "Editing Saved Raid Setup" or
         ((self.demo and (self.groupTest and "Group Test" or "Solo Test") or "Active Session").." · "..role)
     u.settingsStatus:SetText(page=="Display" and "Personal Display Settings" or context)
@@ -733,7 +772,24 @@ end
 function A:RenderSettingsPresentation()
     local u,s=self.ui,self.state
     self:RefreshSettingsContext()
+    local announcements=self:AnnouncementSettings()
+    for key,control in pairs(u.announcementToggles) do
+        control:SetEnabled(self:CanConfigureRaid() and not self.recoveryPending)
+        switchValue(control,announcements[key])
+    end
+    local assistant=self:RaidSettings().recoveryAssistant
+    local candidate=self.recoveryPending and s and self.leader~=s.leader and self.leader
+    u.recoveryAssistant:SetText(assistant or "No Raid Assistant selected")
+    u.recoveryAssistant:SetEnabled(self.Client:InRaid() and not self.demo and self:IsLeader() and not self.recoveryPending)
+    u.takeOverSession:SetEnabled(self:CanTakeOverSession()==true)
+    u.takeOverStatus:SetText(self.recovery and "Checking the latest session data." or
+        self.recoveryFailed and "Recovery could not verify the latest session data." or
+        candidate and ("Available backup: "..candidate) or
+        self.recoveryPending and "Waiting for an eligible backup to come online." or "")
     switchValue(u.lootOpen,self:LootWindowAutoOpen());u.lootOpen:SetEnabled(true)
+    u.responseLayoutPicker:SetText(self:LootWindowLayout("response"))
+    u.votingLayoutPicker:SetText(self:LootWindowLayout("voting"))
+    u.timerLayoutPicker:SetText(self:LootWindowLayout("timer"))
     u.resetOneWindow:SetEnabled(u.selectedResetWindow~=nil)
     u.responseEditNotice:SetText(not s and "Saved raid setup • edit choices for your next session as Raid Leader. Personal colours remain separate." or self:ResponseConfigEditable() and "Raid Leader controls • names, order and visibility apply to future response rounds." or self:IsLeader() and "Raid Leader only • choices are locked during active rounds. Finish or reset them before editing." or "View only • the Raid Leader controls names, order and visibility.")
     switchValue(u.lootPanels.timer.auto,s and s.autoCollect~=false or not s)
@@ -822,6 +878,12 @@ function A:RenderAddonCheck()
     if not self.ui then return end
     local u=self.ui
     if not self:IsLootController() then u.checkWindow:Hide();return end
+    if not u.checkWindow:IsShown() then return end
+    local master,council,present,total,assistant,assistantText=self:LootCheckRoles()
+    u.checkRoles[1]:SetText("In-game Master Looter: "..master)
+    u.checkRoles[2]:SetText("Council online: "..present.." / "..total)
+    u.checkRoles[3]:SetText("Backup Raid Assistant: "..assistantText)
+    u.checkRoles[4]:SetText("Recovery copy: "..self:LootCheckRecoveryStatus())
     local names,detected,ready={},0,0
     for name in pairs(self.roster) do names[#names+1]=name end
     local fresh=self:AddonCheckFresh()
@@ -837,13 +899,15 @@ function A:RenderAddonCheck()
         row:SetShown(name~=nil);row.member=name
         if name then
             local entry=self.addonCheck and self.addonCheck.members[name]
-            local known=entry and entry.version~=nil
+            local known=fresh and entry and entry.version~=nil
             local status,detail=self:AddonMemberStatus(name)
             local correct=fresh and status=="Ready"
             if known then detected=detected+1 end
             if correct then ready=ready+1 end
-            row.player:SetText(name)
-            row.addon:SetText(known and "Installed" or (status=="Waiting" and "Checking…" or "Not detected"))
+            local role=council[name] and "Council" or ""
+            if name==assistant then role=role=="" and "Backup" or role..", Backup" end
+            row.player:SetText(role=="" and name or name.." ("..role..")")
+            row.addon:SetText(status)
             row.version:SetText(known and ("v"..entry.version) or "—")
             local red,green=correct and 0.3 or 1,correct and 0.85 or 0.3
             row.addon:SetTextColor(red,green,correct and 0.45 or 0.3)
@@ -853,9 +917,9 @@ function A:RenderAddonCheck()
     end
     u.checkChild:SetHeight(math.max(400,#names*24))
     local offset=u.checkScroll:GetVerticalScroll()
-    if type(offset)=="number" then u.checkScroll:SetVerticalScroll(math.max(0,math.min(offset,math.max(0,#names*24-math.max(1,u.checkWindow:GetHeight()-197))))) end
+    if type(offset)=="number" then u.checkScroll:SetVerticalScroll(math.max(0,math.min(offset,math.max(0,#names*24-math.max(1,u.checkWindow:GetHeight()-226))))) end
     local state=not self.addonCheck and "Run a check" or (not fresh and "Refresh needed" or (ready.." matching"))
-    u.checkSummary:SetText(detected.." of "..#names.." detected | "..state.." | Your version: v"..self.version)
+    u.checkSummary:SetText(detected.." of "..#names.." replied | "..state)
     local stamp=self:IsLeader() and self.lastAddonProbe or self.lastAddonCheckRequest
     u.recheck:SetEnabled(not self.demo and A.Client:Uptime()-(stamp or -10)>=5)
 end

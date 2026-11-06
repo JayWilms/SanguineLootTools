@@ -285,6 +285,7 @@ end
 
 function A:RequestSync()
     if self.RetryRecovery and self:RetryRecovery() then return end
+    if self.LocateRecoveryHost then self:LocateRecoveryHost() end
     if self:IsSoloTest() or self:IsLeader() or not self.leader then return end
     if self.lastSync and A.Client:Uptime() - self.lastSync < 10 then return end
     self.lastSync = A.Client:Uptime()
@@ -384,7 +385,7 @@ function A:Publish(p)
     self.publicBaseline=current
     -- Corpse handshakes do not change private ballots. Their public deltas
     -- carry the receipt/award without resending every council member's view.
-    if self.state and not corpseAction then for target in pairs(self.roster) do
+    if self.state and not corpseAction and p.op~="suggestLoot" and p.op~="dismissLootSuggestion" then for target in pairs(self.roster) do
         if target~=self.me then self:SendPrivate(target,id) end
     end end
 end
@@ -428,7 +429,7 @@ function A:HostRequest(sender, p)
     local responseRequest=type(p)=="table" and type(p.responseRequest)=="number" and p.responseRequest%1==0
         and p.responseRequest>=1 and p.responseRequest<=1000000000 and p.responseRequest or nil
     if not self:IsSoloTest() and not self:IsLeader() then return end
-    if self.recoveryPending and (type(p)~="table" or p.op~="end") then return false end
+    if self.recoveryPending and (self.manualRecovery or type(p)~="table" or p.op~="end") then return false end
     if type(p) == "table" and p.op ~= "syncMaster" then self:SyncGameMaster() end
     if type(p) == "table" and (p.op == "award" or p.op == "correctAward") then
         p.awardedAt, p.awardedVotes = A.Client:ServerTime(), 0
@@ -439,6 +440,8 @@ function A:HostRequest(sender, p)
     if type(p) == "table" and p.op == "tradeActivity" then p.activityHolder = sender end
     if type(p)=="table" and p.op=="lootReport" then p.reportHolder=sender end
     local replaced = type(p)=="table" and p.op=="start" and not self.state and self.recoveryFailed
+    local announcements=type(p)=="table" and self.LiveAnnouncementSettings and self:LiveAnnouncementSettings(p.op)
+    local trackedBefore=announcements and #(self.state.trackedLoot or {})
     local ok, why, unchanged = self:Reduce(sender, p)
     if not ok then
         if type(p)=="table" and p.op=="corpseNativeReceipt" and self.NativeRecordFailure then
@@ -461,6 +464,7 @@ function A:HostRequest(sender, p)
         self.networkMetrics.duplicateCorpseRequests=(self.networkMetrics.duplicateCorpseRequests or 0)+1
         return true
     end
+    if unchanged==true and (p.op=="suggestLoot" or p.op=="dismissLootSuggestion") then return true end
     self.rev = self.rev + 1
     if self.state and (self.raidSetupOperations[p.op] or p.op=="profile") and not self.demo then self:RememberRaidSettings(self.state) end
     if p.op == "end" then
@@ -474,7 +478,9 @@ function A:HostRequest(sender, p)
         self:QueuePersonalReceipt(sender,item,response,responseRequest)
     end
     self:Publish(p)
+    if p.op=="end" and self.gameLeader~=nil then self.leader=self.gameLeader or nil end
     self:Changed()
+    if announcements and self.state then self:AnnounceLootAction(p,announcements,trackedBefore) end
     if p.op=="queueLoot" and sender~=self.me then self:Send({kind="ack",op=p.op,rev=self.rev,count=p.entries and #p.entries or 1},sender) end
     if p.op=="end" and self.groupTest then self.demo,self.groupTest=nil,nil end
     return true
@@ -508,9 +514,10 @@ function A:Packet(sender, packet, channel)
     if self.RecoveryPacket and self:RecoveryPacket(sender,packet,channel) then return end
     if self.HistorySyncPacket and self:HistorySyncPacket(sender,packet) then return end
     if self.NativeLootPacket and self:NativeLootPacket(sender,packet) then return end
+    local recoveryView=self.RecoveryViewPeer and self:RecoveryViewPeer(sender)
     if packet.kind == "request" and self:IsLeader() then
         self:HostRequest(sender, packet.data)
-    elseif packet.kind == "sync" and self:IsLeader() then
+    elseif packet.kind == "sync" and (self:IsLeader() or (not self.state and self.lastEndedSession and packet.sid==self.lastEndedSession)) then
         if self.recoveryPending then return end
         self.syncLimits = self.syncLimits or {}
         if self.syncLimits[sender] and A.Client:Uptime() - self.syncLimits[sender] < 10 then return end
@@ -530,7 +537,8 @@ function A:Packet(sender, packet, channel)
         -- Private ballots still travel only to the authorised requester.
         self:SendView(nil, true)
         self:SendRequestedPrivate(sender,packet)
-    elseif sender == self.leader and sender ~= self.me then
+    elseif sender~=self.me and (sender==self.leader or (recoveryView and packet.kind=="view")) then
+        if self.recoveryPending and self.state and sender~=self.state.leader and packet.kind~="view" then return end
         if packet.kind=="ack" and packet.op=="responseBatch" then
             if packet.sid~= (self.state and self.state.id) or type(packet.data)~="table" or #packet.data>32 then return end
             for _,row in ipairs(packet.data) do
@@ -590,7 +598,15 @@ function A:Packet(sender, packet, channel)
         elseif packet.kind == "view" then
             if type(packet.rev) ~= "number" or type(packet.full) ~= "boolean" then return end
             local s = packet.state
-            if s and (type(s) ~= "table" or s.leader ~= self.leader or type(s.items) ~= "table") then return end
+            if s and (type(s) ~= "table" or s.leader ~= sender or type(s.items) ~= "table") then return end
+            if not self.state and self.locatedRecovery then
+                if not recoveryView or not packet.full or not s or not s.delegatedHost or s.id~=recoveryView.sid then return end
+            elseif self.state and recoveryView and sender~=self.state.leader then
+                if not packet.full or not s or not s.delegatedHost or s.recoveredFrom~=recoveryView.sid or packet.rev<=self.rev then return end
+            elseif self.state and self.manualRecovery and sender~=self.state.leader then
+                if not packet.full or not s or not s.delegatedHost or s.recoveredFrom~=self.state.id
+                    or packet.rev<=self.rev then return end
+            end
             if self.state and not s and (packet.ended~=self.state.id or (not self.recoveryPending and packet.rev<=self.rev)) then return end
             if s and self.state then
                 if s.id==self.state.recoveredFrom then return end
@@ -598,7 +614,7 @@ function A:Packet(sender, packet, channel)
                 if self.recoveryPending and s.id~=self.state.id and s.recoveredFrom~=self.state.id and s.replacesSession~=self.state.id then return end
                 -- Only the original host can resume the same transport session,
                 -- after WoW reverses a leadership change.
-                if self.recoveryPending and s.id==self.state.id and (sender~=self.state.leader or self.recoveryProbeSeen) then return end
+                if self.recoveryPending and s.id==self.state.id and (self.offlineRecovery or sender~=self.state.leader or self.recoveryProbeSeen) then return end
             end
             if s and s.groupTest~=nil and s.groupTest~=true then return end
             if s and not self.Client:InRaid() and not s.groupTest then return end
@@ -627,6 +643,8 @@ function A:Packet(sender, packet, channel)
                 if not s or not self.state or s.id~=self.state.id then self:ResetTestTransport() end
             end
             self.state, self.rev = s or nil, packet.rev
+            self.leader = s and s.leader or (self.gameLeader==nil and self.leader or self.gameLeader) or nil
+            self.locatedRecovery,self.recoveryLocate=nil,nil
             if s and s.groupTest then self.demo,self.groupTest=true,true
             elseif self.groupTest then self.demo,self.groupTest=nil,nil end
             if self.state then for _, item in ipairs(self.state.items) do self:Record(item) end end
@@ -648,7 +666,8 @@ function A:Receive(prefix, message, channel, rawSender)
     local historyPeer=self.HistorySyncTransportPeer and self:HistorySyncTransportPeer(sender)
     local largeHistory=historyPeer and count<=365
     local recoveryPeer=channel=="WHISPER" and self.RecoveryTransportPeer and self:RecoveryTransportPeer(sender)
-    local largeMaster=sender~=self.leader and count>8
+    local recoveryView=self.RecoveryViewPeer and self:RecoveryViewPeer(sender)
+    local largeMaster=sender~=self.leader and not recoveryView and count>8
     if largeMaster and not largeHistory and not recoveryPeer and (not self.state or sender~=self.state.master or self.state.masterBlocked or count>48) then return end
     local key = sender .. ":" .. id
     if completed[key] then return end
@@ -677,7 +696,7 @@ function A:Receive(prefix, message, channel, rawSender)
         end
         if count>512 then completed[oldest]=nil end
         local payload=table.concat(b.parts)
-        local limit=(sender==self.leader or recoveryPeer) and 524288 or (largeHistory and 65536 or ((self.state and sender==self.state.master and not self.state.masterBlocked) and 8640 or 1440))
+        local limit=(sender==self.leader or recoveryPeer or recoveryView) and 524288 or (largeHistory and 65536 or ((self.state and sender==self.state.master and not self.state.masterBlocked) and 8640 or 1440))
         local expanded=true
         if payload:sub(1,1)=="l" then expanded,payload=pcall(self.ExpandWire,self,payload:sub(2),limit) end
         local ok,packet=false,nil
@@ -694,7 +713,8 @@ function A:Receive(prefix, message, channel, rawSender)
             local native=request and request.op=="corpseNativeReceipt" and self.state and sender==self.state.master and #payload<=4096
             local history=historyPeer and type(packet)=="table" and packet.kind=="historySync" and #payload<=65536
             local recovery=recoveryPeer and type(packet)=="table" and packet.kind=="recoveryState"
-            if not release and not native and not history and not recovery then return end
+            local view=recoveryView and type(packet)=="table" and packet.kind=="view"
+            if not release and not native and not history and not recovery and not view then return end
         end
         if ok then self:Packet(sender, packet, channel) end
     end
@@ -743,6 +763,14 @@ frame:SetScript("OnUpdate", function(_, dt)
     elapsed, syncElapsed, voteElapsed = elapsed + dt, syncElapsed + dt, voteElapsed + dt
     if voteElapsed >= 1 then
         voteElapsed = 0
+        if A.RefreshRecoveryAuthority and A.state and not A.demo then
+            local before,pending,manual=A.leader,A.recoveryPending,A.manualRecovery
+            A:RefreshRecoveryAuthority()
+            if before~=A.leader or pending~=A.recoveryPending or manual~=A.manualRecovery then
+                A:CheckRecoveryRoster()
+                if A.Render then A:Render() end
+            end
+        end
         if A.TickRecovery then A:TickRecovery() end
         if not A.recoveryPending then
             A:SyncGameMaster()
