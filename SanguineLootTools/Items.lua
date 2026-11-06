@@ -89,10 +89,10 @@ function A:TestItems()
         {281586,"Elderwild Construction Hammer",3},
         {281636,"Museum Keeper's Chain",3},
         {281637,"Antique Bulwark",3},
-        {282007,"Emerald Watcher's Dreamstaff",3},
-        {284253,"Eternally Frozen Band",3},
-        {284257,"Icesworn Decapitator",3},
-        {284261,"Magically Fortified Legguards",3},
+        {2495,"Walking Stick",1},
+        {1319,"Ring of Iron Will",2},
+        {2491,"Large Axe",1},
+        {7921,"Heavy Mithril Pants",2},
     }) do
         local id=v[1]
         local link=nativeItemLink(id)

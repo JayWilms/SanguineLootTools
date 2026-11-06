@@ -2,7 +2,7 @@
 ## Title: Sanguine Loot Tools
 ## Notes: Loot council, loot tracking, trade timers and raid loot tools.
 ## Author: Joshua Wilmshurst
-## Version: 0.12.0-alpha.64
+## Version: 0.12.0-alpha.66
 ## SavedVariables: SanguineLootCouncilDB
 Core.lua
 Client.lua

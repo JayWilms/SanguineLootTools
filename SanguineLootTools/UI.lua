@@ -488,7 +488,6 @@ function A:BuildUI()
     u.councilList = text(c, "", 12, 20, -310, 530)
     u.councilList:SetHeight(65)
     u.councilList:SetJustifyV("TOP")
-    u.autoMaster = button(c, "", 20, -385, 530, function() A:Act("masterAutoSync") end)
     u.profileName = edit(c, 25, -450, 510, "Saved profile name (maximum 40 bytes)")
     u.profileName:SetMaxLetters(40)
     u.saveProfile = button(c, "Save / overwrite", 20, -490, 170, function()
@@ -561,9 +560,10 @@ function A:BuildUI()
     u.popupFacts = text(p, "", 10, 92, -125, 640)
     u.popupEligibility = text(p, "", 10, 92, -165, 640)
     u.popupFacts:SetMaxLines(1); u.popupEligibility:SetMaxLines(1)
-    u.popupItemHover=CreateFrame("Frame",nil,p)
-    u.popupItemHover:SetPoint("TOPLEFT",92,-61);u.popupItemHover:SetSize(24,24)
-    u.popupItemHover:EnableMouse(true)
+    u.popupItemHover=CreateFrame("Button",nil,p)
+    u.popupItemHover:SetPoint("TOPLEFT",92,-61)
+    u.popupItemHover:SetPoint("RIGHT",u.popupItem,"RIGHT",0,0);u.popupItemHover:SetHeight(24)
+    u.popupItemHover:SetScript("OnClick",function() A:HandleResponseItemModifiedClick(A.popupItem) end)
     u.popupItemHover:SetScript("OnEnter", function(self)
         local item = A.state and A:ItemByID(A.popupItem or 0)
         if item then
@@ -839,7 +839,7 @@ function A:Render()
     if not reviewRole then u.main:Hide();u.voting:Hide() end
     u.responseVoting:SetShown(reviewRole);u.responseVoting:SetEnabled(reviewRole)
     u.responseRoleHint:SetShown(not reviewRole)
-    u.status:SetText((self.demo and (self:TestLabel().." | ") or "") .. (s and ("Leader: " .. s.leader .. "  |  Master looter: " .. s.master .. (s.masterBlocked and " (waiting for game role)" or (s.masterSource == "game" and " (game)" or " (manual)"))) or "No active session. The raid leader starts and configures it."))
+    u.status:SetText((self.demo and (self:TestLabel().." | ") or "") .. (s and ("Leader: " .. s.leader .. "  |  Master looter: " .. s.master .. (s.masterBlocked and " (waiting for game role)" or (s.masterSource == "game" and " (game)" or " (addon)"))) or "No active session. The raid leader starts and configures it."))
     u.start:SetEnabled(self:IsLeader() and not s)
     u.finish:SetEnabled(self:IsLeader() and s ~= nil)
     u.settings:SetEnabled(self:CanConfigureRaid())
@@ -850,8 +850,6 @@ function A:Render()
     u.add:SetEnabled(self:IsMaster())
     u.itemInput:SetEnabled(self:IsMaster())
     u.setMaster:SetEnabled(self:RaidMemberPickerEditable("master"))
-    u.autoMaster:SetEnabled(self:CanConfigureRaid())
-    self:SetSettingsToggle(u.autoMaster,s and s.masterAutoSync and not self.demo)
     u.toggleCouncil:SetEnabled(self:CanConfigureRaid())
     u.selfVotes:SetEnabled(self:CanConfigureRaid())
     self:SetSettingsToggle(u.selfVotes,s and s.selfVotes)
@@ -875,7 +873,17 @@ function A:Render()
         local id = (self.itemPage or 0) * (self.votingItemRows or 9) + i
         local item = (i<=(self.votingItemRows or 9) and s and s.items[id]) or nil
         b:SetShown(item ~= nil)
-        if b.awarded then b.awarded:SetShown(item~=nil and item.status=="awarded" and item.winner~=nil) end
+        if b.voteMark then
+            local awarded = item and item.status == "awarded" and item.winner ~= nil
+            local own = item and not awarded and self:IsCouncil() and self:VisibleVoting(item).ownBallot
+            local voted = own and own.choices and next(own.choices) ~= nil
+            if awarded or voted then
+                -- The original ready texture is green. Desaturate before tinting yellow.
+                b.voteMark:SetDesaturated(not awarded)
+                b.voteMark:SetVertexColor(1, awarded and 1 or 0.85, awarded and 1 or 0.12)
+            end
+            b.voteMark:SetShown(awarded or voted or false)
+        end
         if item then
             local name = item.link:match("%[([^%]]+)%]") or "Item"
             b:SetText("")
@@ -1012,6 +1020,7 @@ function A:Render()
     self:ResizeReadableWindow(u.popup,u.popup:GetWidth(),u.popup:GetHeight())
     u.popupItem:SetText(current and current.link or self:ResponseEmptyMessage(hidden))
     u.popupIcon:SetTexture(self:ItemIcon(current)); u.popupIcon:SetShown(current ~= nil)
+    u.popupItemHover:SetShown(current ~= nil)
     local response = self:PersonalSelection(current)
     local responseStatus = response and ("Your response: " .. self:ResponseLabel(response.choice,current) .. (current.status == "open" and " (click to change)" or " (closed)")) or (current and current.status ~= "open" and "No response recorded (closed)." or "Choose one response below.")
     u.popupStatus:SetText(current and responseStatus or (s and (hidden>0 and "Items outside your class or professions are hidden." or "Wait for the master looter to release loot.") or "Responses will appear after the raid leader starts a session and loot is released."))
@@ -1268,9 +1277,11 @@ function A:BuildConfirmationUI(u,window,text,button)
     u.confirmationAccept=button(f,"Confirm",20,-194,240,function() A:AcceptConfirmation() end)
     u.confirmationCancel=button(f,"Cancel",280,-194,240,function() A:CloseConfirmation() end)
     f.closeButton:SetScript("OnClick",function() A:CloseConfirmation() end)
-    f:SetScript("OnHide",function()
+    -- Preserve the window layer hook that removes the owner's dim overlay.
+    f:HookScript("OnHide",function(dialog)
         if A.confirmationContext then A.confirmationContext.data=nil end
         A.confirmationContext=nil
+        dialog.sltDialogOwner=nil
     end)
     f:SetScript("OnUpdate",function()
         if A.confirmationContext and not A:ConfirmationContextValid(A.confirmationContext) then A:CloseConfirmation() end

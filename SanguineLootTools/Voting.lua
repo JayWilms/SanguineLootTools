@@ -37,10 +37,10 @@ function A:BallotTotals(item)
     if item.closedResults then return item.closedResults.totals, item.closedResults.names, item.closedResults.progress end
     local totals, names, progress = {}, {}, {eligible = 0, submitted = 0, abstained = 0}
     if not self.state then return totals, names, progress end
-    for voter in pairs(self.state.council) do
-        if self.roster[voter] then
+    for voter in pairs(self.roster) do
+        local ballot = item.ballots and item.ballots[voter]
+        if self:IsCouncilMember(voter) or (ballot and ballot.masterVote) then
             progress.eligible = progress.eligible + 1
-            local ballot = item.ballots and item.ballots[voter]
             if ballot then
                 progress.submitted = progress.submitted + 1
                 if ballot.abstain then progress.abstained = progress.abstained + 1 end
@@ -60,10 +60,10 @@ function A:PrivateVoting(item, viewer)
     local s = self.state
     local result = {ownBallot = false, totals = false, voterNames = false, notice = false}
     if not s then return result end
-    local own = s.council[viewer] and item.ballots and item.ballots[viewer]
+    local canReview = self:IsCouncilMember(viewer)
+    local own = canReview and item.ballots and item.ballots[viewer]
     if own then result.ownBallot = self.Copy(own) end
     result.notice = item.ballotInvalidations and item.ballotInvalidations[viewer] or false
-    local canReview = s.council[viewer] or viewer == s.master
     local rules = item.votingRules or s.rules
     local reveal = item.voting == "closed" or item.status == "awarded" or rules.visibility == "immediate"
         or (rules.visibility == "own" and own ~= nil and own ~= false)
@@ -99,7 +99,7 @@ function A:ReduceVoting(sender, p, item)
         if sender ~= self.leader or item.voting ~= "open" or not item.deadline or A.Client:ServerTime() < item.deadline then return false, "Voting deadline has not been reached." end
         self:CloseBallot(item)
     elseif p.op == "vote" or p.op == "abstain" or p.op == "setVote" then
-        if not s.council[sender] or (item.status ~= "open" and item.status ~= "closed") or item.voting ~= "open" then return false, "Only assigned council members can vote on open ballots." end
+        if not self:IsCouncilMember(sender) or (item.status ~= "open" and item.status ~= "closed") or item.voting ~= "open" then return false, "Only council members can vote on open ballots." end
         if p.round ~= item.round then return false, "The voting round changed. Review this item and submit again." end
         if item.deadline and A.Client:ServerTime() >= item.deadline then return false, "The voting deadline has passed." end
         local old = item.ballots[sender]
@@ -137,6 +137,8 @@ function A:ReduceVoting(sender, p, item)
             elseif old then item.ballots[sender] = nil
             else return false, "Choose a candidate or Abstain." end
         end
+        -- Keep a submitted Master Looter vote after a handoff while its voter remains in the raid.
+        if item.ballots[sender] and sender == s.master then item.ballots[sender].masterVote = true end
         item.ballotInvalidations[sender] = nil
     else return false, "Unknown voting action." end
     item.ballotVersion = (item.ballotVersion or 0) + 1
@@ -259,7 +261,7 @@ function A:OnVotingRosterChanged()
     for _, item in ipairs(self.state.items) do
         if item.status ~= "awarded" and item.voting ~= "closed" then
             for voter, ballot in pairs(item.ballots) do
-                if not self.roster[voter] or not self.state.council[voter] then item.ballots[voter] = nil
+                if not self.roster[voter] or (not self:IsCouncilMember(voter) and not ballot.masterVote) then item.ballots[voter] = nil
                 else
                     for candidate in pairs(ballot.choices) do
                         if not self.roster[candidate] then ballot.choices[candidate] = nil end

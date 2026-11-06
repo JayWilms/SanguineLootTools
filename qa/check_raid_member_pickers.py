@@ -18,6 +18,7 @@ function A:RefreshRailArrow() end
 function A:Changed() end
 function A:Print(message) lastMessage=message end
 A.me='Leader-Realm';A.leader=nil;A.roster={}
+A.Client={InGroup=function() return false end}
 A:InitStorage()
 parent=CreateFrame('Frame',nil,UIParent)
 local function button(owner,label,x,y,width,callback)
@@ -48,9 +49,10 @@ end
 lua=setup()
 lua.execute('''
 -- Solo: no empty dropdown, but manual setup still works.
-assert(not A.ui.masterMemberPicker:IsEnabled() and not A.ui.councilMemberPicker:IsEnabled())
+assert(A.ui.masterMemberPicker:IsEnabled() and not A.ui.masterMemberPicker.dropdownArrow:IsEnabled())
+assert(not A.ui.councilMemberPicker:IsEnabled())
 assert(A.ui.councilName:IsEnabled())
-assert(A:Act('masterAutoSync',{}));A:RefreshRaidMemberPickers()
+A:RefreshRaidMemberPickers()
 assert(A.ui.masterName:IsEnabled())
 A.ui.masterName:SetText('FutureMaster-Realm');A.ui.councilName:SetText('FutureCouncil-Realm')
 assert(A:Act('master',{target=A.ui.masterName:GetText()}))
@@ -88,7 +90,7 @@ print('Solo manual setup, 40-member sorted dropdowns, scrolling, realm disambigu
 
 lua=setup()
 lua.execute('''
-addRoster();A:Act('masterAutoSync',{});A:RefreshRaidMemberPickers()
+addRoster();A:RefreshRaidMemberPickers()
 A.ui.masterMemberPicker.dropdownArrow:Click();local menu=A.ui.settingsDropdown
 -- Member leaves before a row click; stale option cannot replace typed input.
 A.ui.masterName:SetText('Keep-Realm');A.roster[menu.choices[1][2]]=nil
@@ -102,7 +104,7 @@ A.roster['Another-Realm']='raid5';A:RefreshRaidMemberPickers();assert(menu:IsSho
 A:CloseSettingsDropdown()
 -- Lost leader permissions between opening and clicking cannot change the draft.
 A.ui.councilMemberPicker:Click();A.ui.councilName:SetText('KeepCouncil-Realm')
-A.state={id='live',masterAutoSync=false,council={},items={}}
+A.state={id='live',council={},items={}}
 A.leader='Other-Realm';menu.rows[1]:Click()
 assert(A.ui.councilName:GetText()=='KeepCouncil-Realm')
 A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
@@ -112,8 +114,8 @@ assert(not A.ui.masterName:IsEnabled() and not A.ui.councilName:IsEnabled())
 A.leader=A.me;A.state.items={{status='open',voting='open'}}
 A:RefreshRaidMemberPickers();assert(not A.ui.councilMemberPicker:IsEnabled())
 A.state.groupTest=true;A:RefreshRaidMemberPickers();assert(A.ui.councilMemberPicker:IsEnabled())
-A.state.groupTest=nil;A.state.items={};A.state.masterAutoSync=true;A.state.masterSource='game'
-A:RefreshRaidMemberPickers();assert(not A.ui.masterMemberPicker:IsEnabled())
+A.state.groupTest=nil;A.state.items={};A.state.masterSource='game'
+A:RefreshRaidMemberPickers();assert(A.ui.masterMemberPicker:IsEnabled())
 A.state.masterSource='pending';A.state.masterBlocked=true
 assert(not A:RaidMemberPickerEditable('master'))
 A.state.masterBlocked=false;A.state.masterSource='unavailable'
@@ -206,7 +208,7 @@ lua.execute('''
 local field=A.ui.masterName
 assert(A.ui.masterMemberPicker==field and field.kind=='EditBox')
 assert(field.placeholder:IsShown())
-assert(A:Act('masterAutoSync',{}));A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
+A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
 assert(field:IsEnabled() and not field.dropdownArrow:IsEnabled(),'solo typing must remain available without an empty roster menu')
 field:SetText('Typed-Realm');field.scripts.OnTextChanged(field)
 assert(not field.placeholder:IsShown())
@@ -220,7 +222,7 @@ assert(field:GetText()=='Same-Beta' and not field.placeholder:IsShown())
 assert(A:RaidSettings().master~='Same-Beta','dropdown selection applied without Assign')
 assert(A:Act('master',{target=field:GetText()}))
 assert(A:RaidSettings().master=='Same-Beta')
-assert(A:Act('masterAutoSync',{}));A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
-assert(not field:IsEnabled() and not field.dropdownArrow:IsEnabled())
+A:RefreshRaidMemberPickers();A:RefreshSettingsDropdowns()
+assert(field:IsEnabled() and field.dropdownArrow:IsEnabled())
 ''')
 print('Single editable Master Looter field, placeholder visibility, solo typing, roster arrow and explicit Assign passed.')

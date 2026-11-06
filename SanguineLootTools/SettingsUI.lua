@@ -47,8 +47,8 @@ function A:RaidMemberPickerEditable(role)
     if not self:CanConfigureRaid() then return false end
     local s=self.state
     if role=="master" then
-        return (not s and not self:RaidSettings().masterAutoSync)
-            or (s~=nil and not (s.masterAutoSync and (s.masterSource=="game" or s.masterBlocked)))
+        if s then return not s.masterBlocked end
+        return not self.Client:InGroup() or self:IsLeader()
     end
     if role=="council" then return not self:VotingLocked() or (s~=nil and s.groupTest==true) end
     return false
@@ -59,7 +59,9 @@ function A:RaidMemberChoices(role)
     table.sort(names)
     local council=self:RaidSettings().council
     for _,name in ipairs(names) do
-        choices[#choices+1]={name..(role=="council" and council[name] and " (Council)" or ""),name}
+        if role~="council" or not self.state or self.state.master~=name or council[name] then
+            choices[#choices+1]={name..(role=="council" and council[name] and " (Council)" or ""),name}
+        end
     end
     return choices
 end
@@ -89,7 +91,6 @@ function A:BuildRaidMemberPickers(parent,button,dropdown)
         GameTooltip:SetOwner(box,"ANCHOR_RIGHT")
         GameTooltip:AddLine("Master Looter",1,.8,.4)
         GameTooltip:AddLine("Type a full character name or use the arrow to select a current raid member, then click Assign.",1,1,1,true)
-        GameTooltip:AddLine("Turn off Follow in-game Master Looter to choose manually.",1,1,1,true)
         GameTooltip:Show()
     end)
     field:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -145,7 +146,7 @@ function A:BuildCouncilMemberRows(parent,button,text,dropdown)
                 or r.menuSID~=(A.state and A.state.id or false)
                 or r.menuRevision~=A:RaidConfigurationRevision() or r.menuMember~=r.member then return end
             if name==r.member then return end
-            if A:RaidSettings().council[name] then A:Print("That player is already on the council.");return end
+            if A:RaidSettings().council[name] or A:IsCouncilMember(name) then A:Print("That player is already on the council.");return end
             if A:Act("council",{target=name,enabled=true,previous=r.member}) then
                 u.councilMemberDraft=nil;A:RenderSettings()
             end
@@ -190,14 +191,14 @@ function A:RenderCouncilMemberRows()
         r.member=names[i]
         r.memberPicker:SetShown(visible);r.remove:SetShown(visible)
         if visible then
-            at(r.memberPicker,0,413+(i-1)*44,width-105)
-            at(r.remove,width-90,413+(i-1)*44,90)
+            at(r.memberPicker,0,225+(i-1)*44,width-105)
+            at(r.remove,width-90,225+(i-1)*44,90)
             r.memberPicker:SetText(r.member and (r.member..(not self.roster[r.member] and " (Not in group)" or "")) or "Select raid member")
             r.memberPicker:SetEnabled(editable and hasRoster)
             r.remove:SetEnabled(editable and (r.member~=nil or #names>0))
         end
     end
-    local bottom=413+count*44
+    local bottom=225+count*44
     at(u.addCouncilMember,0,bottom,200)
     u.addCouncilMember:SetEnabled(editable and hasRoster and not draft and #names<40)
     u.councilRowsHelp:ClearAllPoints();u.councilRowsHelp:SetPoint("TOPLEFT",0,-bottom-42);u.councilRowsHelp:SetWidth(width)
@@ -319,16 +320,15 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     position(u.warningApply,alerts,function(w) return w-180 end,446,180,28)
     description(alerts,"Each threshold alerts once per item copy. Unknown or stale timers do not count down.",498);alerts:SetHeight(560)
     local council=u.settingsPages.Council.content;u.councilSettingsContent=council;u.councilSettingsScroll=u.settingsScrolls.Council
-    section(council,"Loot Authority",0)
-    u.masterStatus=text(council,"",11,0,-102,690);position(u.masterStatus,council,0,102,function(w) return w end,38);u.masterStatus:SetMaxLines(2)
-    switch(u.autoMaster);row(council,"Follow in-game Master Looter","Keep the addon assignment aligned with the game's loot role.",32,u.autoMaster,76)
-    section(council,"Master Looter",175)
+    section(council,"Master Looter",0)
+    u.masterStatus=text(council,"",11,0,-36,690);position(u.masterStatus,council,0,36,function(w) return w end,42);u.masterStatus:SetMaxLines(3)
     self:BuildRaidMemberPickers(council,button,dropdown)
-    position(u.masterName,council,0,218,function(w) return w-195 end,28);u.masterName.hint:Hide()
-    position(u.setMaster,council,function(w) return w-180 end,218,180,28)
-    description(council,"Type full name or use the arrow to select a raid member, then click Assign. Turn off Follow in-game Master Looter to choose manually.",255)
-    description(council,"Prepare names while solo. Collection and distribution settings are in Loot Configuration.",310)
-    section(council,"Council Membership",365)
+    position(u.masterName,council,0,84,function(w) return w-195 end,28);u.masterName.hint:Hide()
+    position(u.setMaster,council,function(w) return w-180 end,84,180,28)
+    description(council,"Choose a raid member and click Assign. While solo, save a default for your next raid.",122)
+    section(council,"Council Membership",165)
+    u.masterCouncil=text(council,"",11,0,-198,690)
+    position(u.masterCouncil,council,0,198,function(w) return w end,20)
     u.councilName:Hide();u.councilName.hint:Hide()
     u.toggleCouncil:Hide();u.councilMemberPicker:Hide();u.councilList:Hide()
     self:BuildCouncilMemberRows(council,button,text,dropdown)
@@ -341,7 +341,7 @@ function A:BuildSettingsUI(u,window,text,button,edit)
     row(council,"Reveal vote totals","Choose when council members can see the results.",869,u.ruleVisibility)
     dropdown(u.ruleNames,{{"Totals only",false},{"Show voter names",true}},function(v) A:UpdateVotingRule("names",v) end)
     row(council,"Voter identities","Controls whether revealed results include voter names.",942,u.ruleNames)
-    description(council,"Raid Leader and Master Looter vote only when added to council. Active rounds lock membership and voting rules; shared tests retain their existing membership exception.",1020);council:SetHeight(1090)
+    description(council,"The Raid Leader votes if they are the Master Looter or a council member. Active rounds lock manual membership and voting rules, except council membership in shared tests.",1020);council:SetHeight(1090)
     u.councilRulesPositions={}
     for i=councilRulesStart,#u.settingsPositions do
         local p=u.settingsPositions[i];p.councilBaseY=p.y
@@ -684,6 +684,7 @@ function A:RenderRaidSetupSummary()
     local u=self.ui;if not u or not u.raidSetupSummary then return end
     local c=self:RaidSettings();local names={}
     for name in pairs(c.council) do names[#names+1]=name end
+    if self.state and c.master and not c.masterBlocked and not c.council[c.master] then names[#names+1]=c.master end
     table.sort(names)
     local profile=self.state and "Session configuration" or SanguineLootCouncilDB.raidSetup.profile or "Custom setup"
     local members={}
@@ -693,7 +694,7 @@ function A:RenderRaidSetupSummary()
     u.raidSetupSummary:SetText((self.state and "Active session" or "Next session").." | Profile: "..profile..
         "\nResponse timer: "..c.responseDuration.."s | Council: "..#names..
         " | Collection: "..(c.lootConfiguration.collection and "Quality Rules" or "Off")..
-        "\nMaster Looter: "..(c.masterAutoSync and "Follow in-game role" or c.master or "You")..
+        "\nMaster Looter: "..(c.master or "Raid Leader")..
         " | Automatic awards: "..(c.lootConfiguration.automatic and "On" or "Off")..
         "\n"..memberSummary)
 end
@@ -732,7 +733,6 @@ function A:RenderSettingsPresentation()
     switchValue(u.lootOpen,self:LootWindowAutoOpen());u.lootOpen:SetEnabled(true)
     u.resetOneWindow:SetEnabled(u.selectedResetWindow~=nil)
     u.responseEditNotice:SetText(not s and "Saved raid setup • edit choices for your next session as Raid Leader. Personal colours remain separate." or self:ResponseConfigEditable() and "Raid Leader controls • names, order and visibility apply to future response rounds." or self:IsLeader() and "Raid Leader only • choices are locked during active rounds. Finish or reset them before editing." or "View only • the Raid Leader controls names, order and visibility.")
-    switchValue(u.autoMaster,not self.demo and (s and s.masterAutoSync or (not s and SanguineLootCouncilDB.masterAutoSync~=false)))
     switchValue(u.lootPanels.timer.auto,s and s.autoCollect~=false or not s)
     switchValue(u.selfVotes,self:RaidSettings().selfVotes)
     local cfg=self:WarningSettings();switchValue(u.warningTrade,cfg.trade);switchValue(u.warningSound,cfg.sound);switchValue(u.lockWindows,self:WindowPositionsLocked());u.lockWindows:SetEnabled(true);u.resetWindows:SetEnabled(true)
@@ -941,19 +941,24 @@ end
 function A:RenderMasterSettings()
     if not self.ui or not self.ui.masterStatus then return end
     local s=self.state
-    local following=s and s.masterAutoSync or (not s and SanguineLootCouncilDB.masterAutoSync~=false)
-    self.ui.autoMaster:SetEnabled(self:CanConfigureRaid() and not self.demo)
-    switchValue(self.ui.autoMaster,following and not self.demo)
-    local name,status=self:ReadGameMaster()
+    local name,status
+    if not s and self.Client:InGroup() then name,status=self:ReadGameMaster() end
+    local pending=self.masterHandoff
     local message
-    if not s then
-        message=""
-    elseif self.demo then message="Test master looter: "..s.master.." — in-game role syncing is disabled in tests."
-    elseif s.masterBlocked then message="Waiting for a readable in-game master looter; loot actions are paused."
-    elseif s.masterAutoSync and s.masterSource=="game" then message="Current master looter: "..s.master.." (following in-game role)"
-    elseif s.masterAutoSync then
-        message="Addon master: "..s.master..(status=="none" and " — no in-game master-loot method is selected." or " — in-game role unavailable; using addon assignment.")
-    else message="Current master looter: "..s.master.." (manual addon assignment)" end
+    if self.demo then message="Test Master Looter: "..s.master
+    elseif (s and s.masterBlocked) or status=="pending" or status=="restricted" then
+        message="Waiting for WoW’s Master Looter. Loot actions are paused."
+    elseif s then
+        message="Current Master Looter: "..s.master..(s.masterSource=="game" and " (WoW)" or " (Sanguine)")
+    elseif name then
+        message="Current Master Looter: "..name.." (WoW)"
+    else
+        message="Saved Master Looter: "..(self:RaidSettings().master or "Raid Leader")
+    end
+    if pending and pending.sid==(s and s.id) and self:IsLeader() and not self.demo then
+        message=message.."\n"..(pending.message or ("Waiting for WoW to confirm "..pending.target.."."))
+    end
     self.ui.masterStatus:SetText(message)
-    self.ui.masterStatus:SetShown(message~="")
+    self.ui.masterCouncil:SetText(s and not s.masterBlocked and (s.master.." is on the council as Master Looter.")
+        or "The active Master Looter is automatically on the council.")
 end

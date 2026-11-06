@@ -1,3 +1,16 @@
+## Alpha.66: Master Looter handoff and response previews
+
+- [ ] With everyone on alpha.66, start a fresh raid session using WoW Master Loot. Open a response round and vote as the Master Looter without manually adding them to council.
+- [ ] Assign a different raid member under Settings → Council. Verify WoW and Sanguine show the same holder, only the new Master Looter can queue and award, and their automatic council seat is active. The previous holder's votes should still count while they remain in the raid. Pending trades should stay with the item holders.
+- [ ] Switch to another loot method. Verify Sanguine uses the saved assignee when present and the raid leader when that assignee is absent. If WoW declines a handoff, verify the picker shows the manual fallback.
+- [ ] In Responses, Ctrl-click an equippable item from the sidebar and again from the item name. Verify the dressing room opens. Test Shift-click with chat open and a plain click on a sidebar icon.
+
+## Alpha.65: Award window, vote ticks and replacement tooltips
+
+- [ ] Vote on an item. Check for a yellow tick after confirmation. Remove your last vote and check the tick disappears. Award an item and check its tick turns green for all viewers.
+- [ ] Confirm an award with a second item queued. The next item should open at normal brightness and its controls should respond. Cancel and Escape should also remove the confirmation shade.
+- [ ] Run /slt test on live Forever and hover Walking Stick, Ring of Iron Will, Large Axe and Heavy Mithril Pants. Verify their full tooltips load and the old four items do not appear.
+
 ## Alpha.64: Cold item data, voting and full character names
 
 - [ ] With the Timer window closed on the receiving client, add previously unseen loot. Queue it immediately and confirm the response round starts while item data is loading. Hover it in Loot or Responses and verify the visible tooltip fills in as data arrives. Repeat with a warm cache and multiple copies of the same item.

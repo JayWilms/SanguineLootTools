@@ -307,7 +307,7 @@ end
 
 function A:SendPrivate(target,itemID)
     local state=self.state
-    if not state or (not state.council[target] and state.master~=target) then return end
+    if not self:IsCouncilMember(target) then return end
     local values={}
     for _,item in ipairs(state.items) do
         if item.voting~="idle" and (not itemID or item.id==itemID or (type(itemID)=="table" and itemID[item.id])) then

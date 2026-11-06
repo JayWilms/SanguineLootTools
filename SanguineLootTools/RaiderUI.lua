@@ -127,6 +127,12 @@ function A:ResponseEmptyMessage(hidden)
     return "Responses closed"
 end
 
+function A:HandleResponseItemModifiedClick(id)
+    local item = self:ItemByID(id)
+    local link = item and self:EquipmentLink(item.link)
+    return link and type(HandleModifiedItemClick) == "function" and HandleModifiedItemClick(link)
+end
+
 function A:BuildResponseRail(u,p,text,button)
     u.responseProgress=text(p,"",11,92,-42,635)
     local rail=CreateFrame("Frame",nil,p)
@@ -142,7 +148,9 @@ function A:BuildResponseRail(u,p,text,button)
         b.answered=b:CreateTexture(nil,"OVERLAY");b.answered:SetTexture("Interface/RaidFrame/ReadyCheck-Ready")
         b.answered:SetPoint("BOTTOMRIGHT",3,-3);b.answered:SetSize(20,20)
         b.unknown=text(b,"?",13,0,-1,14);b.unknown:SetTextColor(1,0.8,0.2)
-        b:SetScript("OnClick",function() if b.itemID then A:SelectResponseItem(b.itemID) end end)
+        b:SetScript("OnClick",function()
+            if b.itemID and not A:HandleResponseItemModifiedClick(b.itemID) then A:SelectResponseItem(b.itemID) end
+        end)
         b:SetScript("OnEnter",function()
             local item=A:ItemByID(b.itemID)
             if not item then return end

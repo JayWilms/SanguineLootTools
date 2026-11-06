@@ -1,16 +1,24 @@
 # Sanguine Loot Tools
 
-Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.64**, protocol **17** (private testing build). Native Master Loot moves eligible automatic assignments without waiting for recipient messages; stacked green materials retain quantities and can merge into existing stacks. Collect for council automatically sends eligible single-copy loot to the actual Master Looter, unawarded, while preserving real bag tracking and trade timers for normal responses and voting. Council stacks remain manual. History recording synchronises in the background and distinguishes native evidence from bag GUID verification. Completed automatic Disenchant and Guild Bank assignments are hidden from active Loot while their history remains available. Early and urgent trade warnings use Alarm Clock 2 (12867), with the existing On/Off switch and no dropdown. A tester reported instant native distribution on alpha.54, with further raid checks continuing. Test response rounds remain 60 seconds.
+Raid loot management addon for WoW: Forever. Current version: **0.12.0-alpha.66**, protocol **17** (private testing build). Native Master Loot moves eligible automatic assignments without waiting for recipient messages; stacked green materials retain quantities and can merge into existing stacks. Collect for council automatically sends eligible single-copy loot to the actual Master Looter, unawarded, while preserving real bag tracking and trade timers for normal responses and voting. Council stacks remain manual. History recording synchronises in the background and distinguishes native evidence from bag GUID verification. Completed automatic Disenchant and Guild Bank assignments are hidden from active Loot while their history remains available. Early and urgent trade warnings use Alarm Clock 2 (12867), with the existing On/Off switch and no dropdown. A tester reported instant native distribution on alpha.54, with further raid checks continuing. Test response rounds remain 60 seconds.
 
 ## Installation
 
-Download the [alpha.64 installer](dist/SanguineLootTools-0.12.0-alpha.64-install.zip). **Update all testers together and start a new normal session:** protocol 17 is incompatible with alpha.58 and older sessions. Saved raid setups/profiles are retained; review the Quality Rules before enabling automation. Enable Automatic Collection for council pickup; enable Automatic Awards separately for direct awards. The Quality Rules now control each item quality directly; the separate addon threshold is removed. Both automation paths still require the appropriate game Master Loot threshold. See the [raid testing checklist](TESTING.md). Previous installers remain in `dist`.
+Download the [alpha.66 installer](dist/SanguineLootTools-0.12.0-alpha.66-install.zip). **Update all testers together and start a new normal session:** protocol 17 is incompatible with alpha.58 and older sessions. Saved raid setups/profiles are retained; review the Quality Rules before enabling automation. Enable Automatic Collection for council pickup; enable Automatic Awards separately for direct awards. The Quality Rules now control each item quality directly; the separate addon threshold is removed. Both automation paths still require the appropriate game Master Loot threshold. See the [raid testing checklist](TESTING.md). Previous installers remain in `dist`.
 
 Copy the `SanguineLootTools` folder into your game's `Interface/AddOns` folder. No separate addon dependencies are required. Enable the addon and **Load out of date AddOns** at character selection. Use `/slt` in game to open the launcher.
 
 See [the addon README](SanguineLootTools/README.txt) for upgrade instructions, commands, changes and outstanding in-game checks.
 
-## Alpha.63: Relic and recipe filtering
+## Alpha.66: Master Looter handoff and item previews
+
+The active Master Looter is automatically on the council. The raid leader can use one picker in Settings → Council. Sanguine follows WoW's confirmed Master Looter and uses the saved assignee or raid leader when the game is using another loot method. Handoffs keep the active round and tracked item holders. In Responses, Ctrl-click an item name or icon to preview it in WoW's dressing room, or Shift-click to link it in chat.
+
+## Alpha.65: Award confirmation, voting ticks and test loot
+
+Voting clears the confirmation shade before an award advances. The item list shows a yellow tick for your recorded vote and a green tick for an award. Four test items that stayed on “Retrieving item information” were replaced with Walking Stick, Ring of Iron Will, Large Axe and Heavy Mithril Pants.
+
+## Alpha.64: Tracked item preloading, vote advance and full names
 
 The 27-item test pool includes all three relic types and one recipe each for Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking and Tailoring. The live recipe filter still supports Cooking, First Aid and Fishing. Tracked loot starts loading item data on arrival, and confirmed votes advance to the next item with a vote available. Forever roster identities use both character names throughout the addon.
 

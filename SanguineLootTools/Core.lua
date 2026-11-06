@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.64"
+A.version = "0.12.0-alpha.66"
 A.protocol = 17
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -86,7 +86,11 @@ function A:IsLeader() return self.me and self.me == self.leader end
 function A:IsSoloTest() return self.demo and not self.groupTest end
 function A:TestLabel() return self.groupTest and "GROUP TEST" or "SOLO TEST" end
 function A:IsMaster() return self.state and self.state.master == self.me and not self.state.masterBlocked end
-function A:IsCouncil() return self.state and self.state.council[self.me] == true end
+function A:IsCouncilMember(name)
+    local s = self.state
+    return s and name and ((s.council and s.council[name] == true) or (s.master == name and not s.masterBlocked)) or false
+end
+function A:IsCouncil() return self:IsCouncilMember(self.me) end
 function A:CanViewCouncil() return (self:IsMaster() or self:IsCouncil()) == true end
 function A:DisplayName(name)
     if self:IsForever() then return name end
@@ -124,13 +128,13 @@ function A:Reduce(sender, p)
         local setup=self:SessionRaidSettings()
         self.rev = 0
         self.state = {id = tostring(A.Client:ServerTime()) .. ":" .. tostring(math.random(100000, 999999)),
-            leader = sender, master = setup.master, council = self.Copy(setup.council), responseOptions=self.Copy(setup.responseOptions),responseNextID=6,responseConfigRevision=0, items = {}, selfVotes = setup.selfVotes, rules = self.Copy(setup.rules), responseDuration = setup.responseDuration,
-            masterAutoSync = setup.masterAutoSync, trackedLoot = {}, lootSequences = {}, autoCollect = setup.lootConfiguration.collection, lootConfiguration=self.Copy(setup.lootConfiguration),lootConfigRevision=0, warningSettings=self.Copy(setup.warningSettings)}
+            leader = sender, master = setup.master, masterFallback = setup.masterFallback, council = self.Copy(setup.council), responseOptions=self.Copy(setup.responseOptions),responseNextID=6,responseConfigRevision=0, items = {}, selfVotes = setup.selfVotes, rules = self.Copy(setup.rules), responseDuration = setup.responseDuration,
+            trackedLoot = {}, lootSequences = {}, autoCollect = setup.lootConfiguration.collection, lootConfiguration=self.Copy(setup.lootConfiguration),lootConfigRevision=0, warningSettings=self.Copy(setup.warningSettings)}
         for _,option in ipairs(self.state.responseOptions) do self.state.responseNextID=math.max(self.state.responseNextID,option.id) end
         if p.groupTest then
             self.testSerial=(self.testSerial or 0)+1
             self.state.id=self.state.id..":test:"..self.testSerial
-            self.state.groupTest=true;self.state.masterAutoSync=false;self.state.autoCollect=false
+            self.state.groupTest=true;self.state.autoCollect=false
             self.state.responseDuration=60;self.demo,self.groupTest=true,true
         end
         self:ApplyGameMaster()
@@ -174,7 +178,7 @@ function A:Reduce(sender, p)
         return true
     elseif p.op == "profile" then
         if sender ~= self.leader then return false, "Only the raid leader can apply profiles." end
-        if type(p.master) ~= "string" or not self.roster[p.master] or type(p.council) ~= "table" or type(p.selfVotes) ~= "boolean" then
+        if type(p.master) ~= "string" or self:SetupMemberName(p.master)~=p.master or type(p.council) ~= "table" or type(p.selfVotes) ~= "boolean" then
             return false, "Invalid profile settings."
         end
         if self:VotingLocked() then return false, "Reset all unawarded ballots before changing council or voting rules." end
@@ -192,23 +196,18 @@ function A:Reduce(sender, p)
         s.responseOptions=options;s.responseConfigRevision=(s.responseConfigRevision or 0)+1
         for _,v in ipairs(options) do s.responseNextID=math.max(s.responseNextID or 6,v.id) end
         if not self.demo then SanguineLootCouncilDB.responseOptions=self.Copy(options) end
-        s.master, s.council, s.selfVotes, s.rules = p.master, p.council, p.selfVotes, self.Copy(p.rules)
+        s.masterFallback, s.council, s.selfVotes, s.rules = p.master, p.council, p.selfVotes, self.Copy(p.rules)
         s.warningSettings=self:CleanWarningSettings(p.warningSettings) or self:DefaultWarningSettings()
         if not self.demo then SanguineLootCouncilDB.warningSettings=self.Copy(s.warningSettings) end
         if self.RememberNativePolicy then self:RememberNativePolicy() end
         s.lootConfiguration=lootConfiguration;s.autoCollect=lootConfiguration.collection;s.lootConfigRevision=(s.lootConfigRevision or 0)+1;self:CancelPreparedCorpseRoutes()
         if not self.demo then SanguineLootCouncilDB.lootConfiguration=self.Copy(lootConfiguration) end
-        s.masterAutoSync = p.masterAutoSync ~= false
         self:ApplyGameMaster()
         s.responseDuration = p.responseDuration or 60
-        if not self.demo then SanguineLootCouncilDB.responseDuration, SanguineLootCouncilDB.masterAutoSync = s.responseDuration, s.masterAutoSync end
+        if not self.demo then SanguineLootCouncilDB.responseDuration = s.responseDuration end
         return true
-    elseif p.op == "syncMaster" or p.op == "masterAutoSync" then
-        if sender ~= self.leader then return false, "Only the raid leader controls master-looter synchronization." end
-        if p.op == "masterAutoSync" then
-            s.masterAutoSync = not s.masterAutoSync
-            if not self.demo then SanguineLootCouncilDB.masterAutoSync = s.masterAutoSync end
-        end
+    elseif p.op == "syncMaster" then
+        if sender ~= self.leader then return false, "Only the raid leader controls Master Looter synchronization." end
         self:ApplyGameMaster()
         return true
     elseif p.op == "responseDuration" then
@@ -237,9 +236,23 @@ function A:Reduce(sender, p)
             local target = (p.op=="council" and p.enabled==false and type(p.target)=="string" and s.council[p.target] and p.target) or self:Resolve(p.target)
             if not target then return false, "Use an unambiguous raid member name (full name)." end
             if p.op == "master" then
-                local gameMaster, status = self:ReadGameMaster()
-                if s.masterAutoSync and (gameMaster or status == "pending" or status == "restricted" or s.masterWasGame) then return false, "The addon follows the in-game master looter. Turn off automatic syncing to assign manually." end
-                s.master, s.masterSource = target, "manual"
+                if not self.demo then
+                    local gameMaster, status = self:ReadGameMaster()
+                    if gameMaster then
+                        if gameMaster ~= target then
+                            local ok, message = self:RequestMasterHandoff(target)
+                            if not ok then return false, message end
+                        end
+                        self:ApplyGameMaster()
+                        return true
+                    end
+                    if status=="pending" or status=="restricted" or (status=="unavailable" and s.masterBlocked) then
+                        return false, "Wait for WoW to report its Master Looter before assigning."
+                    end
+                end
+                s.masterFallback = target
+                self.masterHandoff = nil
+                self:ApplyGameMaster()
             else
                 local ok,message=self:ApplyCouncilMemberChange(s.council,target,p)
                 if not ok then return false,message end
@@ -359,7 +372,6 @@ function A:StartDemo()
     self:Act("start")
     if not self.state then self.demo=nil;self:Print("Test session could not start. Use /slt diagnostics for details.");return end
     self.state.responseDuration=60
-    self:Act("council", {target = self.me})
     self:SeedTestLoot()
     self:Render()
     self:Print("Solo test: "..#self.state.trackedLoot.." Forever items await release in Loot. Use Queue on a row, Manage > Queue item, or Queue all to start 60-second responses. Real trading and history saving are disabled. /slt test refreshes; /slt leave-test exits.")
@@ -381,7 +393,6 @@ function A:StartGroupTest()
     self.demo,self.groupTest,self.preparingGroupTest=true,true,true
     self:Act("start",{groupTest=true})
     if not self.state then self.demo,self.groupTest,self.preparingGroupTest=nil,nil,nil;return false end
-    self:Act("council",{target=self.me})
     self:SeedTestLoot()
     self.preparingGroupTest=nil
     self:Publish() -- One complete set of unreleased simulated copies.

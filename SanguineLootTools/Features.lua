@@ -20,7 +20,6 @@ function A:InitStorage()
     if not self:ValidResponseDuration(db.responseDuration) then db.responseDuration = 60 end
     db.warningSettings=self:CleanWarningSettings(db.warningSettings) or self:DefaultWarningSettings()
     if type(db.tradeWarningSeen)~="table" then db.tradeWarningSeen={} end
-    if type(db.masterAutoSync) ~= "boolean" then db.masterAutoSync = true end
     db.raidSetup=self:CleanRaidSetup(db.raidSetup)
 end
 
@@ -57,19 +56,20 @@ function A:RaidSettings()
     local d=SanguineLootCouncilDB;local c=self.Copy(d.raidSetup)
     c.master=c.master or self.me
     c.responseOptions=self.Copy(d.responseOptions);c.responseDuration=d.responseDuration
-    c.masterAutoSync=d.masterAutoSync;c.warningSettings=self.Copy(d.warningSettings)
+    c.warningSettings=self.Copy(d.warningSettings)
     c.lootConfiguration=self.Copy(d.lootConfiguration)
     return c
 end
 A.raidSetupOperations={responseDuration=true,responseOptions=true,master=true,council=true,
-    selfVotes=true,rules=true,masterAutoSync=true,warningSettings=true,lootConfiguration=true}
+    selfVotes=true,rules=true,warningSettings=true,lootConfiguration=true}
 function A:RememberRaidSettings(settings,profile)
     if self.demo then return end
     local c=settings or self.state;if not c then return end
     self:InitStorage();local d=SanguineLootCouncilDB
     d.raidSetup=self:CleanRaidSetup(c);d.raidSetup.profile=profile
+    d.raidSetup.master=c.masterFallback or d.raidSetup.master
     d.responseOptions=self:CleanResponses(c.responseOptions) or self:DefaultResponses()
-    d.responseDuration=c.responseDuration;d.masterAutoSync=c.masterAutoSync~=false
+    d.responseDuration=c.responseDuration
     d.warningSettings=self:CleanWarningSettings(c.warningSettings) or self:DefaultWarningSettings()
     d.lootConfiguration=self:CleanLootConfiguration(c.lootConfiguration) or self:DefaultLootConfiguration()
     d.raidSetupRevision=(d.raidSetupRevision or 0)+1
@@ -101,12 +101,24 @@ function A:ApplyIdleRaidSetting(op,p)
     elseif op=="responseOptions" then c.responseOptions=self:CleanResponses(p.options);if not c.responseOptions then return false end
     elseif op=="rules" then if not self:ValidVoting(p.rules) then return false end;c.rules=self.Copy(p.rules)
     elseif op=="selfVotes" then c.selfVotes=not c.selfVotes
-    elseif op=="masterAutoSync" then c.masterAutoSync=not c.masterAutoSync
     elseif op=="master" or op=="council" then
-        if op=="master" and c.masterAutoSync then self:Print("Turn off Follow in-game Master Looter to choose a manual default.");return false end
         local target=self:SetupMemberName(p.target)
         if not target then self:Print("Enter an unambiguous current member or full character name for later.");return false end
-        if op=="master" then c.master=target
+        if op=="master" then
+            if self.Client:InGroup() then
+                if not self:IsLeader() then self:Print("Only the raid leader can assign the Master Looter.");return false end
+                if not self.roster[target] then self:Print("Choose a current raid member.");return false end
+                local actual,status=self:ReadGameMaster()
+                if actual then
+                    if actual==target then return true end
+                    local ok,message=self:RequestMasterHandoff(target)
+                    if not ok then self:Print(message) end
+                    if self.RenderMasterSettings then self:RenderMasterSettings() end
+                    return ok
+                end
+                if status=="pending" or status=="restricted" then self:Print("Wait for WoW to report its Master Looter before assigning.");return false end
+            end
+            c.master=target
         else
             local ok,message=self:ApplyCouncilMemberChange(c.council,target,p)
             if not ok then self:Print(message);return false end
@@ -121,7 +133,8 @@ function A:SessionRaidSettings()
     for name in pairs(c.council) do
         if not self.roster[name] then c.council[name]=nil;missing[#missing+1]=name end
     end
-    if not self.roster[c.master] then c.master=self.me;self:Print("Saved Master Looter is absent; using you until the game role resolves.") end
+    c.masterFallback=c.master
+    if not self.roster[c.master] then c.master=self.me end
     if #missing>0 then table.sort(missing);self:Print("Skipped absent council: "..table.concat(missing,", ")) end
     if c.lootConfiguration.automatic then
         for _,r in ipairs(c.lootConfiguration.rules) do
@@ -151,7 +164,7 @@ function A:SaveProfile(name)
     for _ in pairs(SanguineLootCouncilDB.profiles) do n = n + 1 end
     if n >= 20 and not SanguineLootCouncilDB.profiles[name] then self:Print("Maximum 20 profiles. Delete one first."); return false end
     local c=self:RaidSettings()
-    SanguineLootCouncilDB.profiles[name] = {master=c.master,council=copy(c.council),selfVotes=c.selfVotes,rules=copy(c.rules),responseOptions=copy(c.responseOptions),responseDuration=c.responseDuration,masterAutoSync=c.masterAutoSync,warningSettings=copy(c.warningSettings),lootConfiguration=copy(c.lootConfiguration)}
+    SanguineLootCouncilDB.profiles[name] = {master=c.masterFallback or c.master,council=copy(c.council),selfVotes=c.selfVotes,rules=copy(c.rules),responseOptions=copy(c.responseOptions),responseDuration=c.responseDuration,warningSettings=copy(c.warningSettings),lootConfiguration=copy(c.lootConfiguration)}
     self:RememberRaidSettings(self:RaidSettings(),name)
     self:Print("Saved profile: " .. name)
     self:Changed()
@@ -179,11 +192,10 @@ function A:LoadProfile(name)
     for member in pairs(p.council) do
         if self.roster[member] then council[member] = true else missing[#missing + 1] = member end
     end
-    local master = self.roster[p.master] and p.master or self.me
-    if master ~= p.master then self:Print("Saved master looter is absent; you remain master looter.") end
+    local master = self:SetupMemberName(p.master) or self.me
     table.sort(missing)
     if #missing > 0 then self:Print("Skipped absent council: " .. table.concat(missing, ", ")) end
-    local accepted=self:Act("profile", {responseOptions=self:CleanResponses(p.responseOptions) or self:DefaultResponses(), master = master, council = council, selfVotes = p.selfVotes == true, rules = copy(p.rules or self:DefaultVoting()), responseDuration = self:ValidResponseDuration(p.responseDuration) and p.responseDuration or 60, masterAutoSync = p.masterAutoSync ~= false, warningSettings=self:CleanWarningSettings(p.warningSettings) or self:DefaultWarningSettings(),lootConfiguration=self:CleanLootConfiguration(p.lootConfiguration) or self:DefaultLootConfiguration()})
+    local accepted=self:Act("profile", {responseOptions=self:CleanResponses(p.responseOptions) or self:DefaultResponses(), master = master, council = council, selfVotes = p.selfVotes == true, rules = copy(p.rules or self:DefaultVoting()), responseDuration = self:ValidResponseDuration(p.responseDuration) and p.responseDuration or 60, warningSettings=self:CleanWarningSettings(p.warningSettings) or self:DefaultWarningSettings(),lootConfiguration=self:CleanLootConfiguration(p.lootConfiguration) or self:DefaultLootConfiguration()})
     if accepted~=false then SanguineLootCouncilDB.raidSetup.profile=name end
     return accepted
 end
@@ -247,10 +259,11 @@ function A:ResumeSession()
     s.autoCollect = s.autoCollect ~= false
     for _, entry in ipairs(s.trackedLoot) do entry.verifiedHolder = false end
     s.responseDuration = self:ValidResponseDuration(s.responseDuration) and s.responseDuration or 60
-    s.masterAutoSync = s.masterAutoSync ~= false
+    s.masterFallback = s.masterFallback or (not s.masterWasGame and s.master) or SanguineLootCouncilDB.raidSetup.master or self.me
+    s.masterAutoSync = nil
+    self:ApplyGameMaster()
     s.historyID = s.historyID or s.id
     s.id = tostring(A.Client:ServerTime()) .. ":" .. tostring(math.random(100000, 999999)) .. ":resume"
-    if not self.roster[s.master] then s.master = self.me end
     for name in pairs(s.council) do if not self.roster[name] then s.council[name] = nil end end
     for _, item in ipairs(s.items) do
         item.responseOptions=self:CleanResponses(item.responseOptions) or self:DefaultResponses()
@@ -275,7 +288,7 @@ function A:ResumeSession()
         if saved.protocol < 5 and item.status == "open" and item.voting == "idle" then self:StartBallot(item) end
         if item.status ~= "awarded" and item.voting ~= "closed" then
             for voter, ballot in pairs(item.ballots) do
-                if not s.council[voter] then item.ballots[voter] = nil
+                if not self.roster[voter] or (not self:IsCouncilMember(voter) and not ballot.masterVote) then item.ballots[voter] = nil
                 else
                     for candidate in pairs(ballot.choices) do if not self.roster[candidate] then ballot.choices[candidate] = nil end end
                     if not ballot.abstain and not next(ballot.choices) then item.ballots[voter] = nil end
@@ -285,7 +298,6 @@ function A:ResumeSession()
         end
         self:Record(item)
     end
-    self:ApplyGameMaster()
     self:Publish()
     self:Changed()
     self:Print("Saved session resumed. Loot, responses and valid council votes have been restored.")

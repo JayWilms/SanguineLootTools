@@ -54,10 +54,11 @@ local samples = A:TestItems()
 local ids = {}
 for _, sample in ipairs(samples) do ids[sample.id] = true end
 assert(#samples == 27)
-for _, id in ipairs({279247, 279249, 279250, 274277, 279308, 279295, 279322, 279301, 279315}) do
+for _, id in ipairs({279247, 279249, 279250, 274277, 279308, 279295, 279322, 279301, 279315, 2495, 1319, 2491, 7921}) do
     assert(ids[id])
 end
 assert(not ids[274415] and not ids[255726] and not ids[16083])
+assert(not ids[282007] and not ids[284253] and not ids[284257] and not ids[284261])
 ''')
 
 lua.execute(r'''

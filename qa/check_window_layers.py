@@ -167,6 +167,43 @@ A:ClampWindowPosition(f);assert(f.x==1520 and f.y==780)
 f.x=-20;f.y=-10;A:ClampWindowPosition(f);assert(f.x==0 and f.y==0)
 ''')
 print('Flush screen-edge positioning and off-screen limits passed.')
+lua.execute('''
+-- Exercise the real confirmation builder, which adds its own dismissal handler
+-- after the shared window layer hooks have been installed.
+function A:CreateScrollFrame(parent) return CreateFrame('ScrollFrame',nil,parent) end
+function A.Copy(data) return {item=data.item} end
+A:BuildConfirmationUI(A.ui, function()
+    local dialog=root()
+    dialog.closeButton=CreateFrame('Button',nil,dialog)
+    return dialog
+end, function(parent) return CreateFrame('FontString',nil,parent) end,
+    function(parent) return CreateFrame('Button',nil,parent) end)
+local dialog=A.ui.confirmation
+local kind='SANGUINELOOTCOUNCIL_AWARD'
+local confirmed=0
+A.state={id='award-session'}
+function A:ConfirmAward(data)
+    assert(data.item==1)
+    assert(not dialog:IsShown())
+    assert(not voting.sltDialogBlocker:IsShown(), 'Voting is still dimmed when the award advances')
+    confirmed=confirmed+1
+end
+local function openConfirmation()
+    dialog.sltDialogOwner=voting
+    A.confirmationContext={kind=kind,sid=A.state.id,rounds={},data={item=1}}
+    dialog:Show()
+    assert(voting.sltDialogBlocker:IsShown())
+end
+openConfirmation()
+assert(A:AcceptConfirmation() and confirmed==1)
+openConfirmation()
+A:CloseConfirmation()
+assert(not voting.sltDialogBlocker:IsShown() and confirmed==1)
+openConfirmation()
+dialog:Hide() -- Escape closes the frame directly
+assert(not voting.sltDialogBlocker:IsShown() and not A.confirmationContext)
+''')
+print('Award confirmation clears the Voting shade before accepting and also on cancel or direct dismissal.')
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)
 print('Window layering and Lua 5.1 checks passed.')

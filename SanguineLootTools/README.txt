@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.64 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.66 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,24 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.64, protocol 17. Commands use /slt.
+Everyone testing together should use alpha.66, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.65
+- The active Master Looter gets a council seat automatically.
+- The raid leader can hand off the role in Settings > Council. With WoW Master
+  Loot active, the addon waits for the game to confirm the new holder.
+- Without WoW Master Loot, use the saved assignee or the raid leader. A handoff
+  keeps the session, existing votes and tracked item holders.
+- Ctrl-click an item name or icon in Responses to open WoW's dressing room.
+  Shift-click links the item in chat. These follow WoW's modifier bindings.
+
+NEW SINCE ALPHA.64
+- Clear the Voting shade when award confirmation closes, before advancing.
+- Show a yellow tick for your recorded vote and a green tick after award.
+- Replace four test items with persistently unavailable tooltips. The 27-item
+  pool now includes Walking Stick, Ring of Iron Will, Large Axe and Heavy
+  Mithril Pants. Check the replacements on live Forever.
 
 NEW SINCE ALPHA.63
 - Request missing item data when loot arrives and refresh the active tooltip.
