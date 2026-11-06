@@ -2,7 +2,7 @@ local _, A = ...
 SanguineLootTools = A
 SanguineLootCouncil = A -- Retained internal integration identity for existing test modules.
 A.displayName = "Sanguine Loot Tools"
-A.version = "0.12.0-alpha.66"
+A.version = "0.12.0-alpha.67"
 A.protocol = 17
 A.confirmationDialogs = {}
 A.responses = {"BIS", "Upgrade", "Minor Upgrade", "Off-Spec", "PvP", "Pass"}
@@ -337,10 +337,18 @@ function A:Act(op, data)
     if (op=="respond" or op=="open" or op=="queueLoot") and A.Client:Combat() then
         self:Print("Loot responses and releases are unavailable in combat. Reopen responses after combat if needed.");return false
     end
-    if op=="respond" and self:ClassEligibility(self:ItemByID(data.item))=="Restricted" then
-        self:Print("This item is not usable by your class. The response list has been refreshed.");self:Render();return false
+    if op=="respond" then
+        local item=self:ItemByID(data.item)
+        if self:ClassEligibility(item)=="Restricted" then
+            self:Print("This item is not usable by your class. The response list has been refreshed.");self:Render();return false
+        end
+        local option=item and self:ResponseOption(data.choice,item)
+        if option and option.transmog then
+            local _,reason=self:TransmogResponseStatus(item)
+            if reason then self:Print(reason);self:Render();return false end
+        end
+        if type(data.note)~="string" or #data.note>100 then self:Print("Notes must fit within 100 bytes. Your draft has been kept.");return false end
     end
-    if op=="respond" and (type(data.note)~="string" or #data.note>100) then self:Print("Notes must fit within 100 bytes. Your draft has been kept.");return false end
     data.op, data.sid = op, self.state and self.state.id
     if op == "respond" and self.state and self:ItemByID(data.item) then
         data.responseRound = self:ItemByID(data.item).responseRound

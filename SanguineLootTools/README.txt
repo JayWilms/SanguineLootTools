@@ -1,4 +1,4 @@
-Sanguine Loot Tools 0.12.0-alpha.66 - private testing build
+Sanguine Loot Tools 0.12.0-alpha.67 - private testing build
 
 INSTALL
 Exit WoW completely. Back up WTF before upgrading.
@@ -6,8 +6,14 @@ Remove the OLD Interface/AddOns/SanguineLootCouncil addon folder. Extract the
 included SanguineLootTools folder into Interface/AddOns. Do not load both copies.
 The final TOC path is Interface/AddOns/SanguineLootTools/SanguineLootTools.toc.
 No separate addon dependencies are required.
-Everyone testing together should use alpha.66, protocol 17. Commands use /slt.
+Everyone testing together should use alpha.67, protocol 17. Commands use /slt.
 Start a new normal raid session; do not resume a protocol-16 or older session.
+
+NEW SINCE ALPHA.66
+- Enable Transmog from Settings > Responses > Raid Response Choices.
+- Transmog checks the player's collection. A collected look counts even when
+  learned from a different item. A collected or unlearnable appearance disables
+  Transmog only. Unavailable collection data leaves the response Unverified.
 
 NEW SINCE ALPHA.65
 - The active Master Looter gets a council seat automatically.

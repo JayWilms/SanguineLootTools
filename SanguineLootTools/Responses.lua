@@ -113,6 +113,31 @@ function A:ResponseRemaining(item)
     return math.max(0, math.min(item.responseDuration or 60, item.responseDeadline - self:ResponseClock()))
 end
 
+-- This checks the responding client's collection, including looks learned from another source.
+function A:TransmogResponseStatus(item)
+    local client=self.Client
+    local ok,appearanceID,sourceID=client:Call("C_TransmogCollection.GetItemInfo",item.link)
+    if not ok or type(appearanceID)~="number" or appearanceID<=0 or type(sourceID)~="number" or sourceID<=0 then return "unverified" end
+    local found,info=client:Call("C_TransmogCollection.GetAppearanceInfoBySource",sourceID)
+    local collected=found and type(info)=="table" and info.appearanceIsCollected
+    if not found or type(info)~="table" or (issecretvalue and issecretvalue(collected)) or type(collected)~="boolean" then return "unverified" end
+    if collected then return "collected","Appearance already collected." end
+    local checked,ready,learnable=client:Call("C_TransmogCollection.PlayerCanCollectSource",sourceID)
+    if not checked or ready~=true or type(learnable)~="boolean" then return "unverified" end
+    if not learnable then return "ineligible","Your character cannot learn this appearance." end
+    return "available"
+end
+
+local transmogLabels={collected="Transmog (Already collected)",ineligible="Transmog (Cannot learn)",unverified="Transmog (Unverified)"}
+function A:RefreshTransmogResponse(item)
+    local u=self.ui
+    local button=u.transmogButton
+    if not item or not button then u.transmogBlocked=nil;return end
+    local status,reason=self:TransmogResponseStatus(item)
+    u.transmogBlocked=reason~=nil
+    button:SetText(transmogLabels[status] or "Transmog")
+end
+
 function A:RenderResponseTimer()
     if not self.ui then return end
     local u, item = self.ui, self.state and self:ItemByID(self.popupItem or 0)
@@ -139,5 +164,8 @@ function A:RenderResponseTimer()
     else u.responseBar:SetStatusBarColor(0.65, 0.12, 0.18) end
     if not self.Client:ClockReady() then u.responseCountdown:SetText("Client clocks unavailable — responses disabled") end
     if open and A.Client:Combat() then u.responseCountdown:SetText("Combat: responses unavailable — reopen after combat if needed") end
-    for _, button in ipairs(u.responseButtons) do button:SetEnabled(open == true and not A.Client:Combat() and noteBytes<=100 and self.Client:ClockReady() and button.choice~=nil) end
+    local canRespond=open == true and not A.Client:Combat() and noteBytes<=100 and self.Client:ClockReady()
+    for _, button in ipairs(u.responseButtons) do
+        button:SetEnabled(canRespond and button.choice~=nil and not (button==u.transmogButton and u.transmogBlocked))
+    end
 end

@@ -394,6 +394,7 @@ function A:BuildSettingsUI(u,window,text,button,edit)
         r.color:SetScript("OnClick",function(_,mouse) A:CloseSettingsDropdown();local v=A:ResponseOptions()[i];if not v then return end;if mouse=="RightButton" then A:SetPersonalResponseColor(v.id,nil) else A:PickResponseColor(v.id) end end)
     end
     u.addResponse=button(raid,"+ Add response",0,0,180,function() A:EditResponse(0,"add") end)
+    u.addTransmogResponse=button(raid,"+ Add Transmog",0,0,150,function() A:EditResponse(0,"addTransmog") end)
     u.resetResponses=button(raid,"Restore raid choices",0,0,180,function() local popup=A:ShowConfirmation("SANGUINELOOTCOUNCIL_RESET_RESPONSES");if popup then popup.data={sid=A.state and A.state.id or false,revision=A:RaidConfigurationRevision()} end end)
     u.personalColorsDivider=divider(responses,0)
     u.personalColorsHeading=u.responseSections.personal.title
@@ -628,7 +629,9 @@ function A:LayoutSettings()
         at(r.save,body-224,y,60,28);at(r.enabled,body-154,y,76,28);at(r.delete,body-44,y,28,28)
         at(r.color,((i-1)%3)*(swatchWidth+10),40+math.floor((i-1)/3)*42,swatchWidth,32)
     end
-    at(u.addResponse,0,74+count*44+10,180,28);at(u.resetResponses,195,74+count*44+10,190,28)
+    local actionsY=74+count*44+10
+    at(u.addResponse,0,actionsY,135,28);at(u.addTransmogResponse,145,actionsY,140,28)
+    at(u.resetResponses,295,actionsY,155,28)
     at(u.personalColorsHelp,0,0,body,32)
     local sectionY=0
     for _,key in ipairs({"timing","raid","personal"}) do
@@ -779,11 +782,15 @@ function A:RenderSettings()
     u.manageLoot:SetEnabled(self:IsMaster() and self.state and self:TrackedByID(self.selectedTracked or 0)~=nil)
     if not self:IsMaster() then u.lootPanels.timer.manage:Hide() end
     local options,editable=self:ResponseOptions(),self:ResponseConfigEditable()
+    local transmog,customTransmog
     for i,row in ipairs(u.responseEditor or {}) do
         local option=options[i]
         for _,control in pairs(row) do control:SetShown(option~=nil);control:SetEnabled(editable and option and option.id~=6) end
         if option then
+            if option.transmog then transmog=true
+            elseif option.label:lower()=="transmog" then customTransmog=true end
             if row.label:HasFocus()~=true then row.label:SetText(option.label) end
+            if option.transmog then row.label:SetEnabled(false);row.save:SetEnabled(false) end
             row.color:SetEnabled(true)
             local red,green,blue=self:ResponseRGB(option.id)
             row.color.swatch:SetColorTexture(red,green,blue,1)
@@ -793,7 +800,11 @@ function A:RenderSettings()
             row.down:SetEnabled(editable and option.id~=6 and i<#options-1)
         end
     end
-    if u.addResponse then u.addResponse:SetEnabled(editable and #options<9);u.resetResponses:SetEnabled(editable) end
+    if u.addResponse then
+        u.addResponse:SetEnabled(editable and #options<9)
+        u.addTransmogResponse:SetEnabled(editable and not transmog and (#options<9 or customTransmog))
+        u.resetResponses:SetEnabled(editable)
+    end
 
     u.lootPanels.timer.auto:SetEnabled(self:CanConfigureRaid())
     if not self.state then switchValue(u.lootPanels.timer.auto,self:LootConfiguration().collection) end

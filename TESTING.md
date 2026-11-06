@@ -1,3 +1,9 @@
+## Alpha.67: Optional Transmog response
+
+- [ ] With everyone on alpha.67, add Transmog from the Responses settings and start a fresh round. Verify the choice appears on a second client and a submitted Transmog response appears in Voting.
+- [ ] Queue the same item link for a player who owns the look from a different item and a player who can learn it. Check that only the latter can choose Transmog and both can still use their gear responses.
+- [ ] Check an unlearnable appearance and an item with unavailable appearance data. Verify Transmog is disabled for the former and marked Unverified but available for the latter. Try the Response window at its minimum size with seven or more choices.
+
 ## Alpha.66: Master Looter handoff and response previews
 
 - [ ] With everyone on alpha.66, start a fresh raid session using WoW Master Loot. Open a response round and vote as the Master Looter without manually adding them to council.

@@ -521,7 +521,8 @@ function A:LayoutReadableWindow(frame)
         u.responseBar:SetWidth(body)
         u.note:SetWidth(body-10);u.note.hint:SetWidth(body-100)
         local step=(body+10)/3
-        for i,b in ipairs(u.responseButtons) do place(b,92+(i-1)%3*step,245+math.floor((i-1)/3)*34,step-10) end
+        local buttonTop=math.min(245,h-145)
+        for i,b in ipairs(u.responseButtons) do place(b,92+(i-1)%3*step,buttonTop+math.floor((i-1)/3)*34,step-10) end
         place(u.responsePrevious,92,h-45)
         place(u.responseNext,w-128,h-45)
         local scale=u.responseVoting:GetEffectiveScale()

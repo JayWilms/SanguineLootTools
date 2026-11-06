@@ -17,9 +17,10 @@ function A:CleanResponses(options)
             or type(v.label)~="string" or #v.label<1 or #v.label>18 or v.label:find("[%c|]") or v.label:match("^%s") or v.label:match("%s$")
             or labels[v.label:lower()] or type(v.color)~="string" or not v.color:match("^%x%x%x%x%x%x$")
             or type(v.enabled)~="boolean" or type(v.iconOnly)~="boolean" then return end
+        if v.transmog~=nil and (v.transmog~=true or v.id==6 or v.label~="Transmog") then return end
         if v.id==6 and (i~=#options or v.label~="Pass" or not v.enabled) then return end
         if v.id~=6 and v.enabled then nonpass=nonpass+1 end
-        result[i]={id=v.id,label=v.label,color=v.color:lower(),enabled=v.enabled,iconOnly=v.iconOnly}
+        result[i]={id=v.id,label=v.label,color=v.color:lower(),enabled=v.enabled,iconOnly=v.iconOnly,transmog=v.transmog}
         ids[v.id],labels[v.label:lower()]=true,true
     end
     if not ids[6] or nonpass==0 then return end
@@ -120,14 +121,25 @@ function A:EditResponse(index,field,value)
     if not self:ResponseConfigEditable() then self:Print("The raid leader edits responses before opening rounds. Finish or reset active rounds first.");return false end
     local options=self.Copy(self:ResponseOptions())
     local selected=options[index]
-    if field=="add" then
-        if #options>=9 then self:Print("Up to eight choices plus Pass are supported.");return false end
+    if field=="add" or field=="addTransmog" then
+        local transmog=field=="addTransmog"
         local highest=math.max(6,self.state and self.state.responseNextID or 6)
-        for _,v in ipairs(options) do highest=math.max(highest,v.id) end
-        local label="New response";local suffix=1
-        local used={};for _,v in ipairs(options) do used[v.label:lower()]=true end
-        while used[label:lower()] do suffix=suffix+1;label="New response "..suffix end
-        table.insert(options,#options,{id=highest+1,label=label,color="c58aee",enabled=true,iconOnly=false})
+        local used={}
+        for _,v in ipairs(options) do
+            used[v.label:lower()]=v
+            highest=math.max(highest,v.id)
+        end
+        local existing=transmog and used.transmog
+        if existing then
+            existing.label,existing.transmog,existing.enabled="Transmog",true,true
+        else
+            if #options>=9 then self:Print("Up to eight choices plus Pass are supported.");return false end
+            local label=transmog and "Transmog" or "New response"
+            local suffix=1
+            while used[label:lower()] do suffix=suffix+1;label="New response "..suffix end
+            table.insert(options,#options,{id=highest+1,label=label,color=transmog and "63c9c8" or "c58aee",
+                enabled=true,iconOnly=false,transmog=transmog or nil})
+        end
     elseif field=="reset" then options=self:DefaultResponses()
     elseif not selected or selected.id==6 then return false
     elseif field=="delete" then table.remove(options,index)

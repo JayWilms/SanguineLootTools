@@ -223,5 +223,8 @@ function A:TickResponseEligibility()
     if not self.ui or not self.state then return end
     local rows,hidden=self:ResponseItems()
     if self.responseEligibilityKey~=self:ResponseEligibilityKey(rows,hidden) then self:Render()
-    elseif self.ui.popup:IsShown() then self:RenderResponseRail(rows,hidden) end
+    elseif self.ui.popup:IsShown() then
+        self:RenderResponseRail(rows,hidden)
+        self:RefreshTransmogResponse(self:ItemByID(self.popupItem))
+    end
 end

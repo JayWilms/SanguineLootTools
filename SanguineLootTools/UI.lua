@@ -1030,15 +1030,18 @@ function A:Render()
     u.popupEligibility:SetText(current and (classStatus=="Unknown" and ("Eligibility unknown: "..classReason) or self:EligibilityText(current,self.me)) or "")
     local options={}
     for _,v in ipairs(self:ResponseOptions(current)) do if v.enabled then options[#options+1]=v end end
+    u.transmogButton=nil
     for i,b in ipairs(u.responseButtons) do
         local v=options[i];b.choice=v and v.id;b:SetShown(v~=nil)
         if v then
+            if v.transmog then u.transmogButton=b end
             b:SetText(v.label)
             b:GetFontString():SetTextColor(self:ResponseRGB(v.id,current))
             b:SetScript("OnEnter",nil)
             b:SetScript("OnLeave",nil)
         end
     end
+    self:RefreshTransmogResponse(current)
     self:RenderResponseTimer()
     for _,frame in ipairs(self.allWindowFrames) do self:RefreshWindowChrome(frame) end
     if self.demo and s and #(s.trackedLoot or {})>0 and self:IsMaster() and self.testLootShownSID~=s.id then

@@ -211,6 +211,72 @@ assert(A:ClassEligibility(libram)=='Eligible')
 ''')
 print('Recipe visibility uses learned professions at skill 1 and keeps unknown recipes visible.')
 
+
+lua=setup()
+for name in ('LootConfiguration','Warnings'):
+    lua.execute((SRC/f'{name}.lua').read_text(encoding='utf-8'),'SanguineLootTools',lua.globals().A)
+lua.execute('''
+SanguineLootCouncilDB={}
+item.status,item.voting='queued','idle'
+assert(A:EditResponse(0,'addTransmog'))
+local choices=A:ResponseOptions()
+local transmog=choices[#choices-1]
+assert(transmog.label=='Transmog' and transmog.transmog and transmog.enabled and choices[#choices].id==6)
+assert(A:EditResponse(0,'addTransmog') and #A:ResponseOptions()==#choices)
+assert(SanguineLootCouncilDB.responseOptions[#choices-1].transmog)
+assert(A:CleanResponses(A.Decode(A:WireEncode({choices=choices})).choices)[#choices-1].transmog)
+item.responseOptions=nil
+A:StartResponses(item)
+assert(A:ResponseOption(transmog.id,item).transmog)
+
+local collected,ready,learnable=true,true,true
+C_TransmogCollection={
+    GetItemInfo=function(link) assert(link==item.link);return 50,60 end,
+    GetAppearanceInfoBySource=function(source)
+        assert(source==60);return {appearanceIsCollected=collected,sourceIsCollected=false}
+    end,
+    PlayerCanCollectSource=function() return ready,learnable end
+}
+function A:Render() end
+local function widget()
+    return setmetatable({},{__index=function() return function() end end})
+end
+local function responseButton(choice)
+    return {choice=choice,SetEnabled=function(self,v) self.enabled=v end,SetText=function(self,v) self.label=v end}
+end
+local transmogButton,gearButton=responseButton(transmog.id),responseButton(1)
+A.ui={responseBar=widget(),responseCountdown=widget(),responseButtons={transmogButton,gearButton},transmogButton=transmogButton}
+A.popupItem=item.id
+local function refresh()
+    A:RefreshTransmogResponse(item)
+    A:RenderResponseTimer()
+end
+local function respond(choice)
+    return A:Act('respond',{item=item.id,choice=choice,note=''})
+end
+refresh()
+assert(not transmogButton.enabled and gearButton.enabled and transmogButton.label:find('Already collected'))
+assert(not respond(transmog.id) and not item.responses[A.me])
+assert(respond(1) and item.responses[A.me].choice==1)
+collected=false
+refresh()
+assert(transmogButton.enabled and transmogButton.label=='Transmog')
+assert(respond(transmog.id) and item.responses[A.me].choice==transmog.id)
+learnable=false
+refresh()
+assert(not transmogButton.enabled and transmogButton.label:find('Cannot learn') and not respond(transmog.id))
+ready=false
+refresh()
+assert(transmogButton.enabled and transmogButton.label:find('Unverified') and respond(transmog.id))
+C_TransmogCollection=nil
+refresh()
+assert(transmogButton.enabled and transmogButton.label:find('Unverified'))
+item.status='closed'
+refresh()
+assert(not transmogButton.enabled and not gearButton.enabled)
+''')
+print('Opt-in Transmog persists through settings and wire data. Local collection gating, alternate sources, unknown data and normal responses passed.')
+
 for file in SRC.glob('*.lua'):
     lua.eval('function(s,n) assert(loadstring(s,n)) end')(file.read_text(encoding='utf-8'),file.name)
 print('Class auto-pass and Lua 5.1 checks passed. No installer generated.')
